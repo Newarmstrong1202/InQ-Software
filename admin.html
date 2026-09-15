@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>จัดการผู้ใช้ · ETT In-Process Quality</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="app.css">
+<style>
+body{margin:0}[hidden]{display:none!important}
+.page{max-width:900px;margin:0 auto;padding:20px;padding-block:20px 80px}
+table.users{width:100%;border-collapse:collapse;font-size:13px}
+table.users th{text-align:left;font-family:var(--mono);font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3);padding:8px 10px;border-bottom:1px solid var(--line)}
+table.users td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:middle}
+table.users select,table.users input[type=text],table.users input[type=password]{padding:5px 8px;font-size:12.5px}
+.addform{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px 12px;align-items:end}
+@media (max-width:700px){.addform{grid-template-columns:1fr 1fr}}
+.resetRow{display:flex;gap:6px;align-items:center}
+.muted{color:var(--ink-3);font-size:12px}
+</style>
+</head>
+<body>
+<div class="top"><div class="top-in">
+  <div class="brand">
+    <h1>User Management <span class="th">(จัดการผู้ใช้งาน)</span></h1>
+    <p>ETT Tannery · Admin only</p>
+  </div>
+  <div class="top-right">
+    <a class="btn sm" href="index.html">← Entry <span class="th">(หน้าบันทึก)</span></a>
+    <a class="btn sm" href="dashboard.html">Dashboard</a>
+    <span class="whoami" id="whoami"></span>
+    <button class="btn sm" id="btnLogout">Logout <span class="th">(ออกจากระบบ)</span></button>
+  </div>
+</div></div>
+
+<div class="page">
+  <section class="card">
+    <div class="card-hd"><h2>Add user <span class="th">(เพิ่มผู้ใช้ใหม่)</span></h2></div>
+    <div class="card-bd">
+      <form class="addform" id="addForm">
+        <label class="f"><span class="lb">Username</span><input type="text" id="nUsername" required style="text-transform:none"></label>
+        <label class="f"><span class="lb">Password</span><input type="text" id="nPassword" required style="text-transform:none"></label>
+        <label class="f"><span class="lb">Full name (ชื่อ-สกุล)</span><input type="text" id="nFullName" style="text-transform:none"></label>
+        <label class="f"><span class="lb">Role</span>
+          <select id="nRole">
+            <option value="VIEWER">VIEWER — ดูอย่างเดียว</option>
+            <option value="USER" selected>USER — บันทึก/ดู</option>
+            <option value="ADMIN">ADMIN — จัดการทั้งหมด</option>
+          </select>
+        </label>
+        <button type="submit" class="btn primary" style="grid-column:1/2">Add <span class="th">(เพิ่ม)</span></button>
+      </form>
+    </div>
+  </section>
+
+  <section class="card" style="margin-top:16px">
+    <div class="card-hd"><h2>Users <span class="th">(รายชื่อผู้ใช้)</span></h2><span class="rid" id="userCount"></span></div>
+    <div class="card-bd" style="overflow-x:auto">
+      <table class="users">
+        <thead><tr><th>Username</th><th>Full name</th><th>Role</th><th>Active</th><th>Reset password</th><th></th></tr></thead>
+        <tbody id="userRows"></tbody>
+      </table>
+    </div>
+  </section>
+</div>
+<div id="toast"></div>
+<script src="api.js"></script>
+<script>
+const SESSION = requireLogin([ROLES.ADMIN]);
+
+function initTopbar(){
+  const who=document.getElementById("whoami");
+  who.innerHTML="<b>"+SESSION.fullName+"</b><span class=\"role-badge "+SESSION.role+"\">"+SESSION.role+"</span>";
+  document.getElementById("btnLogout").onclick=async()=>{try{await API.logout()}catch(e){}clearSession();location.href="login.html"};
+}
+function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+function toast(m,err){const t=document.createElement("div");t.className="toast"+(err?" err":"");t.textContent=m;document.getElementById("toast").append(t);setTimeout(()=>t.remove(),3200)}
+
+async function loadUsers(){
+  const r=await API.listUsers();
+  if(!r.ok){toast(r.error||"โหลดรายชื่อผู้ใช้ไม่สำเร็จ",true);return}
+  const box=document.getElementById("userRows");box.innerHTML="";
+  document.getElementById("userCount").textContent=r.users.length+" คน";
+  r.users.forEach(u=>{
+    const tr=document.createElement("tr");
+    tr.innerHTML=
+      '<td><b>'+esc(u.username)+'</b>'+(u.username===SESSION.username?' <span class="muted">(คุณ)</span>':'')+'</td>'+
+      '<td>'+esc(u.fullName||"—")+'</td>'+
+      '<td><select data-u="'+esc(u.username)+'" class="roleSel">'+
+        ["ADMIN","USER","VIEWER"].map(r2=>'<option value="'+r2+'"'+(r2===u.role?" selected":"")+'>'+r2+'</option>').join("")+
+      '</select></td>'+
+      '<td><input type="checkbox" data-u="'+esc(u.username)+'" class="activeChk" '+(u.active?"checked":"")+' '+(u.username===SESSION.username?"disabled":"")+'></td>'+
+      '<td><div class="resetRow"><input type="text" placeholder="new password" class="pwInput" style="text-transform:none;width:120px"><button type="button" class="btn sm pwBtn" data-u="'+esc(u.username)+'">Set</button></div></td>'+
+      '<td></td>';
+    box.append(tr);
+  });
+  box.querySelectorAll(".roleSel").forEach(sel=>sel.onchange=async()=>{
+    const r2=await API.updateUser({username:sel.dataset.u,role:sel.value});
+    toast(r2.ok?"อัปเดตแล้ว: "+sel.dataset.u:(r2.error||"ผิดพลาด"),!r2.ok);
+  });
+  box.querySelectorAll(".activeChk").forEach(chk=>chk.onchange=async()=>{
+    const r2=await API.updateUser({username:chk.dataset.u,active:chk.checked});
+    toast(r2.ok?"อัปเดตแล้ว: "+chk.dataset.u:(r2.error||"ผิดพลาด"),!r2.ok);
+  });
+  box.querySelectorAll(".pwBtn").forEach(btn=>btn.onclick=async()=>{
+    const input=btn.closest(".resetRow").querySelector(".pwInput");
+    if(!input.value){toast("ใส่รหัสผ่านใหม่ก่อน",true);return}
+    const r2=await API.updateUser({username:btn.dataset.u,password:input.value});
+    toast(r2.ok?"ตั้งรหัสผ่านใหม่แล้ว: "+btn.dataset.u:(r2.error||"ผิดพลาด"),!r2.ok);
+    input.value="";
+  });
+}
+
+document.getElementById("addForm").addEventListener("submit",async(e)=>{
+  e.preventDefault();
+  const username=document.getElementById("nUsername").value.trim().toLowerCase();
+  const password=document.getElementById("nPassword").value;
+  const fullName=document.getElementById("nFullName").value.trim();
+  const role=document.getElementById("nRole").value;
+  if(!username||!password)return toast("ใส่ username และ password",true);
+  const r=await API.addUser({username,password,fullName,role});
+  if(r.ok){toast("เพิ่มผู้ใช้แล้ว: "+username);e.target.reset();loadUsers()}
+  else toast(r.error||"เพิ่มผู้ใช้ไม่สำเร็จ",true);
+});
+
+initTopbar();
+loadUsers();
+</script>
+</body>
+</html>

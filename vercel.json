@@ -1,5 +1,3 @@
 {
-  "rewrites": [
-    { "source": "/", "destination": "/ett-qc-entry.html" }
-  ]
+  "cleanUrls": true
 }

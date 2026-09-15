@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ETT In-Process Quality</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="app.css">
+<style>body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<div class="top"><div class="top-in">
+  <div class="brand">
+    <h1>In-Process Quality Entry <span class="th">(บันทึกผลตรวจในกระบวนการ)</span></h1>
+    <p>ETT Tannery · Quality &amp; Technical · Pilot v0.6</p>
+  </div>
+  <div class="top-right">
+    <span class="conn" id="conn"><span class="dot"></span><span id="connTxt">Connecting…</span></span>
+    <a class="btn sm" id="lnkDashboard" href="dashboard.html">Dashboard</a>
+    <a class="btn sm" id="lnkAdmin" href="admin.html" hidden>Admin</a>
+    <span class="whoami" id="whoami"></span>
+    <button class="btn sm" id="btnLogout">Logout <span class="th">(ออกจากระบบ)</span></button>
+    <button class="btn" id="btnExport">Export CSV <span class="th">(ส่งออก)</span></button>
+  </div>
+</div></div>
+
+<nav class="tabs"><div class="tabs-in" id="tabs" role="tablist"></div></nav>
+
+<div class="wrap">
+  <main>
+    <section class="card">
+      <div class="card-hd">
+        <h2>Lot Identification <span class="th">(ข้อมูลทั่วไปของหนัง)</span></h2>
+        <span class="rid" id="lotState">NEW LOT</span>
+      </div>
+      <div class="card-bd">
+        <div class="grid g4" id="lotGrid"></div>
+        <div class="grid g4" style="margin-top:12px" id="lotGrid2"></div>
+        <div class="strip off" id="strip"></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-hd">
+        <h2 id="stgTitle">—</h2>
+        <span class="rid" id="recId">—</span>
+      </div>
+      <div class="card-bd" id="stageBody"></div>
+    </section>
+  </main>
+
+  <aside class="rail">
+    <div class="card">
+      <div class="card-hd"><h2 style="font-size:13px">Today <span class="th">(วันนี้)</span></h2><span class="rid" id="railDate"></span></div>
+      <div class="stat3">
+        <div class="stat"><div class="k">Checked<span class="th">ตรวจแล้ว</span></div><div class="v" id="sChecked">0</div></div>
+        <div class="stat"><div class="k">Failed<span class="th">ไม่ผ่าน</span></div><div class="v fail" id="sFailed">0</div></div>
+        <div class="stat"><div class="k">Affected<span class="th">SF กระทบ</span></div><div class="v near" id="sAffected">0</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-hd"><h2 style="font-size:13px">Recent records <span class="th">(บันทึกล่าสุด)</span></h2></div>
+      <div id="recent"><div class="empty">ยังไม่มีบันทึก</div></div>
+      <details class="note">
+        <summary>Master data loaded (ข้อมูลมาตรฐานที่โหลดไว้)</summary>
+        <p id="mdSummary"></p>
+      </details>
+    </div>
+  </aside>
+</div>
+
+<datalist id="dlArticles"></datalist>
+<div id="toast"></div>
+
+<script src="api.js"></script>
+<script>
+/* Master data is loaded from a file so it can be refreshed without touching the app code. */
+if (requireLogin()) {
+  fetch("master-data.json")
+    .then(r => r.json())
+    .then(m => {
+      window.M = m;
+      var s = document.createElement("script");
+      s.src = "app.js";
+      document.body.appendChild(s);
+    })
+    .catch(e => {
+      document.body.insertAdjacentHTML("afterbegin",
+        '<p style="padding:16px;font-family:monospace;color:#AB3B27">Could not load master-data.json</p>');
+    });
+}
+</script>
+</body>
+</html>

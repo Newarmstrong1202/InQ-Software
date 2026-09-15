@@ -4,31 +4,106 @@ Shop-floor data entry for the five leather checkpoints (WBTO → RTO → CTO →
 trial/development form. Bilingual EN/TH, all entry forced to uppercase, every measured value judged
 against a per-article standard as **PASS / NEAR / FAIL**.
 
-Everything is plain HTML, CSS and JavaScript — no build step, no framework, no npm.
+The production app (root of this repo) is a small multi-user web app: login with an in-app account,
+three roles (Admin / User / Viewer), every record stamped with who saved it, all data stored in a
+Google Sheet behind a Google Apps Script API, plus an interactive filterable dashboard for
+management. Still no build step, no framework, no npm — plain HTML/CSS/JS throughout.
 
 ---
 
 ## What's in the box
 
 ```
-ett-qc-entry.html            one self-contained file — open it and it runs (no server needed)
-src/
-  index.html                 same app, split for development
-  app.css                    all styling (design tokens at the top, light + dark)
-  app.js                     all behaviour
-  master-data.json           the four ETT master files, parsed  (~250 KB)
+index.html                   entry app shell — requires login, then loads app.js
+login.html                   sign in
+admin.html                   Admin-only: add/edit/deactivate users, reset passwords
+dashboard.html                interactive, filterable executive dashboard (Chart.js)
+api.js                       shared client: session storage + API() wrapper around the Apps Script backend
+app.js                       entry-form behaviour (checkpoints, judging, save/export)
+app.css                      all styling (design tokens at the top, light + dark)
+master-data.json             the four ETT master files, parsed  (~250 KB)
+google-apps-script/Code.gs   the Apps Script source deployed as the backend (reference copy — Apps
+                              Script itself is not git-connected; edit and redeploy at script.google.com)
+
+ett-qc-entry.html            older, fully self-contained single file — open it and it runs with
+                              no server and no login, records kept in the tab only. Kept as a
+                              no-infrastructure fallback (e.g. no internet at the site); it does not
+                              talk to the Google Sheet backend and has no roles/audit trail.
+src/                          original development split that ett-qc-entry.html / early index.html
+                              were built from; superseded by the root-level files above
 tools/
   build_master_data.py       regenerate master-data.json from the .xlsx masters
 docs/
-  schema.sql                 relational schema for putting this on a real database
+  schema.sql                 relational schema (reference; the live schema is the Google Sheet's tabs)
   reject_reason_stage_map.csv  the 134 reject reasons × which stage offers each (review in Excel)
 ```
 
-**To just look at it:** open `ett-qc-entry.html`. It runs in local mode — everything works, records
-are kept in the tab only.
+**To just look at it, no login, no server:** open `ett-qc-entry.html` directly.
 
-**To develop:** `cd src && python3 -m http.server 8080`, then open <http://localhost:8080>.
-A server is needed because `index.html` fetches `master-data.json`, which `file://` blocks.
+**To run the real app:** serve the repo root over any static file server (or the Vercel deployment)
+and open `index.html` — it needs a server because it fetches `master-data.json` (`file://` blocks
+that), and it needs the internet to reach the Apps Script API.
+
+---
+
+## Accounts & roles
+
+Login is a custom username/password system stored in the Google Sheet's `Users` tab (not Google
+Sign-In) — see `login.html` / `api.js` / the `login` action in `Code.gs`. Passwords are hashed
+(SHA-256 + per-user random salt) before they ever touch the sheet. A successful login gets a session
+token good for 12 hours, stored in the `Sessions` tab and kept client-side in `localStorage`.
+
+| Role | Can do |
+|---|---|
+| **ADMIN** | Everything: enter/view records, manage the article standards, and (via `admin.html`) add users, change roles, activate/deactivate accounts, reset passwords |
+| **USER** | Enter and view records, including saving an article's standard override |
+| **VIEWER** | View only — the entry form and dashboard both load, but all inputs are disabled (see `lockViewer()` in `app.js`) |
+
+Every saved record carries `recordedBy` (username) and a timestamp, set server-side from the session
+token, not from anything the client sends — see `saveRecord` in `Code.gs`. That's the audit trail.
+
+Default admin login after first setup: `admin` / `Admin@2025!` — change this password from
+`admin.html` (or via `changePassword`) as soon as the app is live.
+
+---
+
+## Backend: Google Sheet + Apps Script
+
+There's no separate server to host — the API is a Google Apps Script Web App reading and writing a
+Google Sheet, deployed with **Execute as: Me / Access: Anyone**. `google-apps-script/Code.gs` in this
+repo is a reference copy of what's deployed; because Apps Script isn't git-connected, changes have to
+be made and redeployed at script.google.com by hand, then this copy updated to match.
+
+The Sheet has five tabs, one per concern: `Users`, `Sessions`, `Records`, `Standards`, and a
+config/log tab. `api.js` on the client talks to it with one `fetch()` per call:
+
+```js
+await fetch(API_BASE_URL, { method: "POST", body: JSON.stringify({ action: "saveRecord", token, ...fields }) });
+```
+
+The POST deliberately omits a `Content-Type` header (so the browser sends `text/plain`) because Apps
+Script Web Apps can't answer a CORS preflight `OPTIONS` request — setting `Content-Type: application/json`
+would trigger one and every cross-origin call would fail.
+
+Actions the backend supports: `login`, `logout`, `getRecords`, `saveRecord`, `pullLot`,
+`saveStandard`, `getStandards`, `listUsers`, `addUser`, `updateUser`, `deleteUser`, `changePassword`.
+Every action except `login` requires a valid session token and is re-checked server-side against the
+caller's role in `_requireAuth()` — the client-side role gating (hiding buttons, `lockViewer()`) is a
+convenience for the UI, not the security boundary.
+
+If the API is unreachable, the entry form falls back to local mode (records kept in the tab,
+`localStorage` draft mirroring per stage) so a flaky connection on the shop floor never loses a
+half-filled form — see the `ONLINE` flag and `LOCAL` array in `app.js`.
+
+---
+
+## Dashboard
+
+`dashboard.html` is open to any logged-in role. It fetches up to 5,000 records once
+(`API.getRecords({limit:5000})`) and does all filtering/redrawing client-side — no extra server
+round-trip per filter change. Filters: date range, stage, article, inspector, result. It shows KPI
+tiles (total records, PASS/NEAR/FAIL rate, top defect) and five Chart.js charts: results over time,
+results by stage, top-10 defects, inspector leaderboard, and article performance.
 
 ---
 
@@ -123,42 +198,33 @@ the softness master (neck / belly / butt).
 
 ---
 
-## Wiring it to your own backend
+## Wiring a different backend
 
-The prototype persists through a hosted document store. There are **six** places that touch storage,
-all in the `PERSISTENCE` section of `app.js` — replace their bodies and nothing else changes:
+The root app already talks to the Google Sheet backend described above via `api.js` / `Code.gs` —
+this section is for anyone who wants to swap that out (e.g. wiring the standalone
+`ett-qc-entry.html` to a real backend, or replacing Apps Script with something else). The touch
+points are the same six functions, now living in `api.js` + the top of `app.js` instead of a
+`PERSISTENCE` block:
 
 | function | does | replace with |
 |---|---|---|
-| `boot()` | opens the store | `DB = yourClient` |
-| `subscribe()` | live list of recent records | `GET /api/records?limit=40`, poll or SSE |
-| `pullLot(lot)` | look up a lot number | `GET /api/lots/:lotNo` |
-| `saveRecord()` | write one checkpoint record | `POST /api/records` |
-| `saveStandard()` | write per-article standards | `PUT /api/standards/:article/:stage` |
-| `doExport()` | dump records to CSV | `GET /api/records.csv` |
-
-Example replacement for `pullLot`:
-
-```js
-async function pullLot(lot){
-  if(!lot || lot.length < 3) return;
-  const r = await fetch("/api/lots/" + encodeURIComponent(lot));
-  if(!r.ok){ $("#lotState").textContent = "NEW LOT"; return; }
-  const d = await r.json();
-  ["ARTICLE","COLOUR","CUSTOMER","SUBSTANCE","TANNERY","QTY_SF","PIECES"]
-    .forEach(k => { if(d[k]) V[k] = d[k]; });
-  $("#lotState").textContent = "LOADED FROM LOT MASTER";
-  applyArticle(false);
-}
-```
+| `apiRaw()` / `API.*` (`api.js`) | opens the connection, wraps every call | point `API_BASE_URL` elsewhere, or swap `apiRaw()` for your own client |
+| `refreshRecent()` (`app.js`) | polling list of recent records | `GET /api/records?limit=40`, or push via SSE/websocket |
+| `pullLot(lot)` (`app.js`) | look up a lot number | `GET /api/lots/:lotNo` |
+| `saveRecord()` (`app.js`) | write one checkpoint record | `POST /api/records` |
+| `saveStandard()` (`app.js`) | write per-article standards | `PUT /api/standards/:article/:stage` |
+| `doExport()` (`app.js`) | dump records to CSV | `GET /api/records.csv`, or keep the current client-side Blob export over `getRecords` |
 
 The record object `saveRecord()` builds is the contract — see `docs/schema.sql` for the same data
 normalised into tables, including why `qc_value` stores `std_min` / `std_max` per row (standards
-change; a record has to stay interpretable against the standard it was judged by).
+change; a record has to stay interpretable against the standard it was judged by). Note the live
+schema is now the Google Sheet's tabs (`Users` / `Sessions` / `Records` / `Standards`), not this SQL
+file — `schema.sql` is kept as a normalised reference, e.g. for eventually moving off Sheets to a
+real database.
 
-Entry keeps working without a backend: if the store is unreachable the app switches to local mode
-and keeps records in the tab, and drafts are always mirrored to `localStorage` per stage so a reload
-or a dropped connection never loses a half-filled form.
+Entry keeps working without a backend: if the API is unreachable the app switches to local mode and
+keeps records in the tab, and drafts are always mirrored to `localStorage` per stage so a reload or a
+dropped connection never loses a half-filled form.
 
 ---
 

@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dashboard · ETT In-Process Quality</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="app.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<style>
+body{margin:0}[hidden]{display:none!important}
+.page{max-width:1400px;margin:0 auto;padding:20px;padding-block:20px 80px}
+.filters{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px 12px;align-items:end}
+@media (max-width:1080px){.filters{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:600px){.filters{grid-template-columns:1fr 1fr}}
+.filters label.f{margin-bottom:0}
+.kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin:16px 0}
+@media (max-width:900px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:14px 16px;box-shadow:var(--shadow)}
+.kpi .k{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)}
+.kpi .v{font-size:24px;font-weight:600;margin-top:4px;font-family:var(--mono)}
+.kpi .v.fail{color:var(--fail)}.kpi .v.near{color:var(--near)}.kpi .v.pass{color:var(--pass)}
+.charts{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}
+@media (max-width:1000px){.charts{grid-template-columns:1fr}}
+.chart-card{background:var(--surface);border:1px solid var(--line);border-radius:6px;box-shadow:var(--shadow);padding:14px 16px}
+.chart-card h3{font-size:13px;margin-bottom:10px}
+.chart-card h3 .th{font-family:var(--thai);font-weight:400;color:var(--ink-2);font-size:11.5px}
+.chart-wrap{position:relative;height:280px}
+.chart-wrap.tall{height:360px}
+.empty-note{color:var(--ink-3);font-size:12.5px;padding:30px 0;text-align:center}
+</style>
+</head>
+<body>
+<div class="top"><div class="top-in">
+  <div class="brand">
+    <h1>Quality Dashboard <span class="th">(แดชบอร์ดคุณภาพ)</span></h1>
+    <p>ETT Tannery · Interactive · Filterable</p>
+  </div>
+  <div class="top-right">
+    <a class="btn sm" href="index.html">← Entry <span class="th">(หน้าบันทึก)</span></a>
+    <a class="btn sm" id="lnkAdmin" href="admin.html" hidden>Admin</a>
+    <span class="whoami" id="whoami"></span>
+    <button class="btn sm" id="btnLogout">Logout <span class="th">(ออกจากระบบ)</span></button>
+    <button class="btn" id="btnRefresh">Refresh <span class="th">(รีเฟรช)</span></button>
+  </div>
+</div></div>
+
+<div class="page">
+  <section class="card">
+    <div class="card-hd"><h2>Filters <span class="th">(ตัวกรอง)</span></h2><span class="rid" id="rowCount"></span></div>
+    <div class="card-bd">
+      <div class="filters">
+        <label class="f"><span class="lb">From (ตั้งแต่)</span><input type="date" id="fFrom"></label>
+        <label class="f"><span class="lb">To (ถึง)</span><input type="date" id="fTo"></label>
+        <label class="f"><span class="lb">Stage (แผนก)</span><select id="fStage"><option value="">ALL</option></select></label>
+        <label class="f"><span class="lb">Article (อาร์ติเคิล)</span><select id="fArticle"><option value="">ALL</option></select></label>
+        <label class="f"><span class="lb">Inspector / recorded by</span><select id="fInspector"><option value="">ALL</option></select></label>
+        <label class="f"><span class="lb">Result (ผลตรวจ)</span>
+          <select id="fResult"><option value="">ALL</option><option value="pass">PASS</option><option value="near">NEAR</option><option value="fail">FAIL</option></select>
+        </label>
+      </div>
+    </div>
+  </section>
+
+  <div class="kpis">
+    <div class="kpi"><div class="k">Total records (ทั้งหมด)</div><div class="v" id="kTotal">0</div></div>
+    <div class="kpi"><div class="k">Pass rate (ผ่าน)</div><div class="v pass" id="kPass">0%</div></div>
+    <div class="kpi"><div class="k">Near rate (ใกล้เกณฑ์)</div><div class="v near" id="kNear">0%</div></div>
+    <div class="kpi"><div class="k">Fail rate (ไม่ผ่าน)</div><div class="v fail" id="kFail">0%</div></div>
+    <div class="kpi"><div class="k">Top defect (ตำหนิสูงสุด)</div><div class="v" id="kDefect" style="font-size:14px">—</div></div>
+  </div>
+
+  <div class="charts">
+    <div class="chart-card"><h3>Records over time <span class="th">(แนวโน้มรายวัน แยกตามผล)</span></h3>
+      <div class="chart-wrap"><canvas id="chartTime"></canvas></div></div>
+    <div class="chart-card"><h3>Pass / Near / Fail by stage <span class="th">(ผลตรวจแยกตามแผนก)</span></h3>
+      <div class="chart-wrap"><canvas id="chartStage"></canvas></div></div>
+    <div class="chart-card"><h3>Top defect reasons <span class="th">(ตำหนิที่พบบ่อยที่สุด)</span></h3>
+      <div class="chart-wrap"><canvas id="chartDefect"></canvas></div></div>
+    <div class="chart-card"><h3>Checked by inspector <span class="th">(จำนวนที่ตรวจ แยกตามผู้ตรวจ)</span></h3>
+      <div class="chart-wrap"><canvas id="chartInspector"></canvas></div></div>
+    <div class="chart-card" style="grid-column:1/-1"><h3>Article performance <span class="th">(ผลตรวจแยกตามอาร์ติเคิล — 15 อันดับแรกตามจำนวน)</span></h3>
+      <div class="chart-wrap tall"><canvas id="chartArticle"></canvas></div></div>
+  </div>
+</div>
+<div id="toast"></div>
+<script src="api.js"></script>
+<script>
+const SESSION = requireLogin();
+let ALL=[], CHARTS={};
+const PALETTE={pass:"#2C7355",near:"#9A6B0F",fail:"#AB3B27",accent:"#2C5E7E",accent2:"#4A87AB",tan:"#8E6234",grid:"rgba(140,135,121,.18)",ink2:"#5B584F"};
+
+function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+function toast(m,err){const t=document.createElement("div");t.className="toast"+(err?" err":"");t.textContent=m;document.getElementById("toast").append(t);setTimeout(()=>t.remove(),3200)}
+
+function initTopbar(){
+  const who=document.getElementById("whoami");
+  who.innerHTML="<b>"+esc(SESSION.fullName||SESSION.username)+"</b><span class=\"role-badge "+SESSION.role+"\">"+SESSION.role+"</span>";
+  document.getElementById("lnkAdmin").hidden=!hasRole(ROLES.ADMIN);
+  document.getElementById("btnLogout").onclick=async()=>{try{await API.logout()}catch(e){}clearSession();location.href="login.html"};
+  document.getElementById("btnRefresh").onclick=load;
+}
+
+function uniq(arr){return [...new Set(arr.filter(Boolean))].sort()}
+
+function populateFilters(){
+  const stages=uniq(ALL.map(r=>r.stage));
+  const articles=uniq(ALL.map(r=>r.article));
+  const inspectors=uniq(ALL.map(r=>r.recordedBy||r.inspector));
+  const fill=(id,list)=>{const sel=document.getElementById(id);const cur=sel.value;
+    sel.innerHTML='<option value="">ALL</option>'+list.map(x=>'<option value="'+esc(x)+'"'+(x===cur?" selected":"")+'>'+esc(x)+'</option>').join("")};
+  fill("fStage",stages);fill("fArticle",articles);fill("fInspector",inspectors);
+}
+
+function applyFilters(){
+  const from=document.getElementById("fFrom").value;
+  const to=document.getElementById("fTo").value;
+  const stage=document.getElementById("fStage").value;
+  const article=document.getElementById("fArticle").value;
+  const inspector=document.getElementById("fInspector").value;
+  const result=document.getElementById("fResult").value;
+  return ALL.filter(r=>{
+    if(from && (r.ts||"").slice(0,10)<from)return false;
+    if(to && (r.ts||"").slice(0,10)>to)return false;
+    if(stage && r.stage!==stage)return false;
+    if(article && r.article!==article)return false;
+    if(inspector && r.recordedBy!==inspector && r.inspector!==inspector)return false;
+    if(result && r.result!==result)return false;
+    return true;
+  });
+}
+
+function destroyCharts(){Object.values(CHARTS).forEach(c=>c&&c.destroy());CHARTS={}}
+
+function render(){
+  const rows=applyFilters();
+  document.getElementById("rowCount").textContent=rows.length+" รายการ";
+  const total=rows.length;
+  const cnt=k=>rows.filter(r=>r.result===k).length;
+  const pass=cnt("pass"),near=cnt("near"),fail=cnt("fail");
+  const pct=n=>total?Math.round(n/total*100)+"%":"0%";
+  document.getElementById("kTotal").textContent=total;
+  document.getElementById("kPass").textContent=pct(pass);
+  document.getElementById("kNear").textContent=pct(near);
+  document.getElementById("kFail").textContent=pct(fail);
+
+  const defectCount={};
+  rows.forEach(r=>{const n=r.mainDefectName||(r.rejectDetail&&r.rejectDetail[0]&&r.rejectDetail[0].name);if(n)defectCount[n]=(defectCount[n]||0)+1});
+  const topDefectEntry=Object.entries(defectCount).sort((a,b)=>b[1]-a[1])[0];
+  document.getElementById("kDefect").textContent=topDefectEntry?topDefectEntry[0]+" ("+topDefectEntry[1]+")":"—";
+
+  destroyCharts();
+  if(!total){["chartTime","chartStage","chartDefect","chartInspector","chartArticle"].forEach(id=>{
+    const ctx=document.getElementById(id).getContext("2d");ctx.clearRect(0,0,9999,9999);
+  });return}
+
+  // 1. Records over time, stacked by result
+  const byDay={};
+  rows.forEach(r=>{const d=(r.ts||"").slice(0,10);if(!d)return;byDay[d]=byDay[d]||{pass:0,near:0,fail:0};byDay[d][r.result||"pass"]=(byDay[d][r.result||"pass"]||0)+1});
+  const days=Object.keys(byDay).sort();
+  CHARTS.time=new Chart(document.getElementById("chartTime"),{type:"bar",
+    data:{labels:days,datasets:[
+      {label:"PASS",data:days.map(d=>byDay[d].pass||0),backgroundColor:PALETTE.pass,stack:"s"},
+      {label:"NEAR",data:days.map(d=>byDay[d].near||0),backgroundColor:PALETTE.near,stack:"s"},
+      {label:"FAIL",data:days.map(d=>byDay[d].fail||0),backgroundColor:PALETTE.fail,stack:"s"}
+    ]},
+    options:chartOpts({stacked:true})
+  });
+
+  // 2. Pass/Near/Fail by stage
+  const stages=uniq(rows.map(r=>r.stage));
+  const byStage=stages.map(s=>({s,pass:0,near:0,fail:0}));
+  rows.forEach(r=>{const o=byStage.find(x=>x.s===r.stage);if(o)o[r.result||"pass"]=(o[r.result||"pass"]||0)+1});
+  CHARTS.stage=new Chart(document.getElementById("chartStage"),{type:"bar",
+    data:{labels:byStage.map(o=>o.s),datasets:[
+      {label:"PASS",data:byStage.map(o=>o.pass),backgroundColor:PALETTE.pass,stack:"s"},
+      {label:"NEAR",data:byStage.map(o=>o.near),backgroundColor:PALETTE.near,stack:"s"},
+      {label:"FAIL",data:byStage.map(o=>o.fail),backgroundColor:PALETTE.fail,stack:"s"}
+    ]},
+    options:chartOpts({stacked:true})
+  });
+
+  // 3. Top defect reasons (horizontal bar, top 10)
+  const topDefects=Object.entries(defectCount).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  CHARTS.defect=new Chart(document.getElementById("chartDefect"),{type:"bar",
+    data:{labels:topDefects.map(x=>x[0]),datasets:[{label:"ครั้ง",data:topDefects.map(x=>x[1]),backgroundColor:PALETTE.accent}]},
+    options:chartOpts({indexAxis:"y"})
+  });
+
+  // 4. Checked by inspector
+  const byInsp={};
+  rows.forEach(r=>{const n=r.recordedBy||r.inspector||"—";byInsp[n]=(byInsp[n]||0)+1});
+  const inspEntries=Object.entries(byInsp).sort((a,b)=>b[1]-a[1]).slice(0,12);
+  CHARTS.inspector=new Chart(document.getElementById("chartInspector"),{type:"bar",
+    data:{labels:inspEntries.map(x=>x[0]),datasets:[{label:"จำนวนที่บันทึก",data:inspEntries.map(x=>x[1]),backgroundColor:PALETTE.tan}]},
+    options:chartOpts({})
+  });
+
+  // 5. Article performance, top 15 by volume
+  const byArt={};
+  rows.forEach(r=>{const a=r.article||"—";byArt[a]=byArt[a]||{pass:0,near:0,fail:0,total:0};byArt[a][r.result||"pass"]=(byArt[a][r.result||"pass"]||0)+1;byArt[a].total++});
+  const topArt=Object.entries(byArt).sort((a,b)=>b[1].total-a[1].total).slice(0,15);
+  CHARTS.article=new Chart(document.getElementById("chartArticle"),{type:"bar",
+    data:{labels:topArt.map(x=>x[0]),datasets:[
+      {label:"PASS",data:topArt.map(x=>x[1].pass),backgroundColor:PALETTE.pass,stack:"s"},
+      {label:"NEAR",data:topArt.map(x=>x[1].near),backgroundColor:PALETTE.near,stack:"s"},
+      {label:"FAIL",data:topArt.map(x=>x[1].fail),backgroundColor:PALETTE.fail,stack:"s"}
+    ]},
+    options:chartOpts({stacked:true})
+  });
+}
+
+function chartOpts(o){
+  return {
+    responsive:true,maintainAspectRatio:false,
+    indexAxis:o.indexAxis||"x",
+    scales:{
+      x:{stacked:!!o.stacked,grid:{color:PALETTE.grid},ticks:{color:PALETTE.ink2,font:{size:10.5}}},
+      y:{stacked:!!o.stacked,grid:{color:PALETTE.grid},ticks:{color:PALETTE.ink2,font:{size:10.5}},beginAtZero:true}
+    },
+    plugins:{legend:{labels:{color:PALETTE.ink2,font:{size:11}}}}
+  };
+}
+
+async function load(){
+  const r=await API.getRecords({limit:5000});
+  if(!r.ok){toast(r.error||"โหลดข้อมูลไม่สำเร็จ",true);return}
+  ALL=r.records;
+  populateFilters();
+  render();
+}
+
+["fFrom","fTo","fStage","fArticle","fInspector","fResult"].forEach(id=>{
+  document.getElementById(id).addEventListener("change",render);
+});
+
+initTopbar();
+load();
+</script>
+</body>
+</html>

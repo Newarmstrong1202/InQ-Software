@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>เข้าสู่ระบบ · ETT In-Process Quality</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="app.css">
+<style>
+body{margin:0}
+.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+.login-card{width:100%;max-width:380px;background:var(--surface);border:1px solid var(--line);border-radius:8px;box-shadow:var(--shadow);padding:28px 26px}
+.login-card h1{font-size:19px;margin-bottom:2px}
+.login-card p.sub{margin:2px 0 22px;font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3)}
+.login-card label.f{margin-bottom:14px}
+.login-card .btn.primary{width:100%;padding:11px;margin-top:6px}
+.login-err{background:var(--fail-bg);color:var(--fail);border-radius:4px;padding:9px 12px;font-size:12.5px;margin-bottom:14px;display:none}
+.login-err.show{display:block}
+</style>
+</head>
+<body>
+<div class="login-wrap">
+  <form class="login-card" id="loginForm">
+    <h1>เข้าสู่ระบบ <span class="th" style="font-family:var(--sans);font-weight:400;color:var(--ink-2)">Sign in</span></h1>
+    <p class="sub">ETT In-Process Quality</p>
+    <div class="login-err" id="loginErr"></div>
+    <label class="f"><span class="lb">Username (ชื่อผู้ใช้)</span>
+      <input type="text" id="username" autocomplete="username" required></label>
+    <label class="f"><span class="lb">Password (รหัสผ่าน)</span>
+      <input type="password" id="password" autocomplete="current-password" required style="text-transform:none"></label>
+    <button type="submit" class="btn primary" id="btnLogin">Sign in <span class="th">(เข้าสู่ระบบ)</span></button>
+  </form>
+</div>
+<div id="toast"></div>
+<script src="api.js"></script>
+<script>
+(function () {
+  var existing = getSession();
+  if (existing && existing.token) location.href = "index.html";
+
+  var form = document.getElementById("loginForm");
+  var errBox = document.getElementById("loginErr");
+  form.addEventListener("submit", async function (e) {
+    e.preventDefault();
+    errBox.classList.remove("show");
+    var btn = document.getElementById("btnLogin");
+    var username = document.getElementById("username").value.trim();
+    var password = document.getElementById("password").value;
+    if (!username || !password) return;
+    btn.disabled = true; btn.textContent = "SIGNING IN…";
+    var r = await API.login(username, password);
+    btn.disabled = false; btn.innerHTML = 'Sign in <span class="th">(เข้าสู่ระบบ)</span>';
+    if (!r.ok) {
+      errBox.textContent = r.error || "เข้าสู่ระบบไม่สำเร็จ";
+      errBox.classList.add("show");
+      return;
+    }
+    setSession({ token: r.token, username: r.username, role: r.role, fullName: r.fullName });
+    var params = new URLSearchParams(location.search);
+    location.href = params.get("next") || "index.html";
+  });
+})();
+</script>
+</body>
+</html>
