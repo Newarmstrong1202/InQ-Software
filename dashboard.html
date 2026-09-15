@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap">
 <link rel="stylesheet" href="app.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.5.1/chart.umd.min.js"></script>
 <style>
 body{margin:0}[hidden]{display:none!important}
 .page{max-width:1400px;margin:0 auto;padding:20px;padding-block:20px 80px}
@@ -193,8 +193,8 @@ function render(){
   const byInsp={};
   rows.forEach(r=>{const n=r.recordedBy||r.inspector||"—";byInsp[n]=(byInsp[n]||0)+1});
   const inspEntries=Object.entries(byInsp).sort((a,b)=>b[1]-a[1]).slice(0,12);
-  CHARTS.inspector=new Chart(document.getElementById("chartInspector"),{type:"bar",
-    data:{labels:inspEntries.map(x=>x[0]),datasets:[{label:"จำนวนที่บันทึก",data:inspEntries.map(x=>x[1]),backgroundColor:PALETTE.tan}]},
+  CHARTS.inspector=new Chart(document.getElementById("chartInspector"),type:"bar",
+    data:{labels:inspEntries.map(x=>x[0]),datasets:[{label:"จำ๙นที่ชันทึก",data:inspEntries.map(x=>x[1]),backgroundColor:PALETTE.tan}]},
     options:chartOpts({})
   });
 
@@ -226,7 +226,7 @@ function chartOpts(o){
 
 async function load(){
   const r=await API.getRecords({limit:5000});
-  if(!r.ok){toast(r.error||"โหลดข้อมูลไม่สำเร็จ",true);return}
+  if(!r.ok){toast(r.error||"โลตข้อมูล@คิล",true);return}
   ALL=r.records;
   populateFilters();
   render();
