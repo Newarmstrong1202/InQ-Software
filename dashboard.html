@@ -193,8 +193,8 @@ function render(){
   const byInsp={};
   rows.forEach(r=>{const n=r.recordedBy||r.inspector||"—";byInsp[n]=(byInsp[n]||0)+1});
   const inspEntries=Object.entries(byInsp).sort((a,b)=>b[1]-a[1]).slice(0,12);
-  CHARTS.inspector=new Chart(document.getElementById("chartInspector"),type:"bar",
-    data:{labels:inspEntries.map(x=>x[0]),datasets:[{label:"จำ๙นที่ชันทึก",data:inspEntries.map(x=>x[1]),backgroundColor:PALETTE.tan}]},
+  CHARTS.inspector=new Chart(document.getElementById("chartInspector"),{type:"bar",
+    data:{labels:inspEntries.map(x=>x[0]),datasets:[{label:"จำนวนที่บันทึก",data:inspEntries.map(x=>x[1]),backgroundColor:PALETTE.tan}]},
     options:chartOpts({})
   });
 
@@ -226,7 +226,7 @@ function chartOpts(o){
 
 async function load(){
   const r=await API.getRecords({limit:5000});
-  if(!r.ok){toast(r.error||"โลตข้อมูล@คิล",true);return}
+  if(!r.ok){toast(r.error||"โหลดข้อมูลไม่สำเร็จ",true);return}
   ALL=r.records;
   populateFilters();
   render();
