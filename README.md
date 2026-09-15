@@ -18,10 +18,14 @@ index.html                   entry app shell — requires login, then loads app.
 login.html                   sign in
 admin.html                   Admin-only: add/edit/deactivate users, reset passwords
 dashboard.html                interactive, filterable executive dashboard (Chart.js)
+setup.html                    Admin-only: edit the four master-data tables (ART/WB/COL/RJ) and the
+                              Inspector name list, live against the Sheet — see "Master data" below
 api.js                       shared client: session storage + API() wrapper around the Apps Script backend
 app.js                       entry-form behaviour (checkpoints, judging, save/export)
 app.css                      all styling (design tokens at the top, light + dark)
-master-data.json             the four ETT master files, parsed  (~250 KB)
+master-data.json             the four ETT master files, parsed (~250 KB) — the one-time seed for the
+                              Sheet's Master* tabs (see `importMasterData()`); no longer fetched by
+                              the running app, which reads the Sheet instead
 google-apps-script/Code.gs   the Apps Script source deployed as the backend (reference copy — Apps
                               Script itself is not git-connected; edit and redeploy at script.google.com)
 
@@ -41,8 +45,9 @@ docs/
 **To just look at it, no login, no server:** open `ett-qc-entry.html` directly.
 
 **To run the real app:** serve the repo root over any static file server (or the Vercel deployment)
-and open `index.html` — it needs a server because it fetches `master-data.json` (`file://` blocks
-that), and it needs the internet to reach the Apps Script API.
+and open `index.html` — it needs the internet to reach the Apps Script API, which is where both the
+records and the master data now live (master data is cached to `localStorage` so a brief drop in
+connectivity doesn't block a device that already loaded it once).
 
 ---
 
@@ -65,6 +70,12 @@ token, not from anything the client sends — see `saveRecord` in `Code.gs`. Tha
 Default admin login after first setup: `admin` / `Admin@2025!` — change this password from
 `admin.html` (or via `changePassword`) as soon as the app is live.
 
+**Inspectors are not Users.** The `Inspector` field on the entry form is a shop-floor name, not a
+login account — plenty of inspectors never sign in to the app at all. Their names live in their own
+`Inspectors` sheet tab, managed from `setup.html` (Admin only), completely separate from the `Users`
+tab that `admin.html` manages. If no inspector names have been added yet, the field falls back to
+free text so the floor is never blocked.
+
 ---
 
 ## Backend: Google Sheet + Apps Script
@@ -74,8 +85,10 @@ Google Sheet, deployed with **Execute as: Me / Access: Anyone**. `google-apps-sc
 repo is a reference copy of what's deployed; because Apps Script isn't git-connected, changes have to
 be made and redeployed at script.google.com by hand, then this copy updated to match.
 
-The Sheet has five tabs, one per concern: `Users`, `Sessions`, `Records`, `Standards`, and a
-config/log tab. `api.js` on the client talks to it with one `fetch()` per call:
+The Sheet has ten tabs: `Users`, `Sessions`, `Records`, `Lots`, `Standards` from the original build,
+plus `MasterART`, `MasterWB`, `MasterCOL`, `MasterRJ` (the four master-data tables, one row per
+article/colour/reject-reason) and `Inspectors` (the standalone inspector name list — see above).
+`api.js` on the client talks to it with one `fetch()` per call:
 
 ```js
 await fetch(API_BASE_URL, { method: "POST", body: JSON.stringify({ action: "saveRecord", token, ...fields }) });
@@ -86,14 +99,37 @@ Script Web Apps can't answer a CORS preflight `OPTIONS` request — setting `Con
 would trigger one and every cross-origin call would fail.
 
 Actions the backend supports: `login`, `logout`, `getRecords`, `saveRecord`, `pullLot`,
-`saveStandard`, `getStandards`, `listUsers`, `addUser`, `updateUser`, `deleteUser`, `changePassword`.
-Every action except `login` requires a valid session token and is re-checked server-side against the
-caller's role in `_requireAuth()` — the client-side role gating (hiding buttons, `lockViewer()`) is a
-convenience for the UI, not the security boundary.
+`saveStandard`, `getStandards`, `listUsers`, `addUser`, `updateUser`, `deleteUser`, `changePassword`,
+`getMasterData`, `saveMasterRow`, `deleteMasterRow`, `listInspectors`, `addInspector`,
+`updateInspector`, `deleteInspector`. Every action except `login` requires a valid session token and
+is re-checked server-side against the caller's role in `_requireAuth()` — the client-side role gating
+(hiding buttons, `lockViewer()`) is a convenience for the UI, not the security boundary. All of the
+new master-data/inspector *write* actions (`save`/`delete`/`add`/`update`) are ADMIN-only; `listInspectors`
+and `getMasterData` are readable by any logged-in role since the entry form needs them too.
 
 If the API is unreachable, the entry form falls back to local mode (records kept in the tab,
 `localStorage` draft mirroring per stage) so a flaky connection on the shop floor never loses a
 half-filled form — see the `ONLINE` flag and `LOCAL` array in `app.js`.
+
+### Deploying the master-data / inspector update
+
+Because Apps Script isn't git-connected, rolling out `MasterART`/`MasterWB`/`MasterCOL`/`MasterRJ`/
+`Inspectors` and their API actions is a one-time manual step:
+
+1. Open the Apps Script project at script.google.com and paste in the updated `Code.gs` from this
+   repo (replacing the old contents), then **Deploy → Manage deployments → edit the existing
+   deployment → New version** so `/exec` picks up the new code (the URL itself doesn't change).
+2. Run `setup()` once from the Apps Script editor's function dropdown — it creates the five new sheet
+   tabs (existing tabs are untouched).
+3. Run `importMasterData()` once — it fetches `master-data.json` straight from this GitHub repo over
+   Google's network and seeds the four Master* tabs (~2,700 rows total). Check **View → Logs**
+   afterwards for the row counts it reports. Safe to re-run, but re-running **overwrites** whatever is
+   currently in those tabs, so only do this again for a full re-seed (see "Master data" above).
+4. Upload the new/changed front-end files (`setup.html`, `api.js`, `app.js`, `index.html`,
+   `dashboard.html`, `admin.html`) to the GitHub repo / Vercel deployment as usual.
+
+After that, any Admin can open `setup.html` from the top bar to manage the four master tables and the
+inspector list — no further Apps Script changes needed for routine edits.
 
 ---
 
@@ -109,7 +145,22 @@ results by stage, top-10 defects, inspector leaderboard, and article performance
 
 ## Master data
 
-`master-data.json` is generated from four workbooks. Re-run the tool whenever they change:
+**Day-to-day fixes** (a softness target is wrong, a colour code needs adding, a reject reason's
+wording changed) go through `setup.html` now — an Admin-only page with a tab per table (ART / WB /
+COL / RJ) plus a fifth tab for Inspectors. Each tab has search, paged tables with inline edit/delete,
+and an add-row form; every change calls straight through to the `MasterART` / `MasterWB` /
+`MasterCOL` / `MasterRJ` sheet tabs (`saveMasterRow` / `deleteMasterRow` in `Code.gs`) and is live for
+every device immediately — no redeploy, no regenerating `master-data.json`, no touching this repo.
+
+`master-data.json` itself is now only the **one-time seed**: it was the source for
+`importMasterData()` in `Code.gs`, which pulled it straight from GitHub into the four Sheet tabs
+during initial setup (see the Deploying section below). If the four source workbooks get a large,
+structural overhaul (hundreds of new articles at once, say) it's still fastest to regenerate the JSON
+and re-run `importMasterData()` — that function clears and re-writes each Master* tab from scratch,
+so it will **discard any edits made through `setup.html`** since the JSON was last generated. Treat
+it as a full re-seed, not an incremental sync. For everything smaller, edit in `setup.html` directly.
+
+Re-run the tool whenever the workbooks change and a full re-seed is what's wanted:
 
 ```bash
 pip install openpyxl
@@ -236,7 +287,8 @@ These exist because a checkpoint entry has to take under a minute on the floor:
   selects, decision ACCEPTED). Most lots are fine; the operator then corrects only the exceptions.
 - **COPY LAST** — clones the previous record for that stage.
 - **Enter** moves to the next field; number fields open the numeric keypad on mobile.
-- Inspector name is remembered per device; drafts auto-save per stage.
+- Inspector is a dropdown sourced from the `Inspectors` sheet (managed in `setup.html`); the device
+  remembers the last one picked. Falls back to a free-text field if no inspectors are set up yet.
 - Filled fields tint green, so what is still empty is obvious at a glance.
 - Reject picker searches by code number, 2-letter code, English or Thai, filtered to the stage.
 

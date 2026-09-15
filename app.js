@@ -346,10 +346,21 @@ function buildLot(){
   });
 
   const il=wrapF("Inspector","ผู้ตรวจ",true);il.htmlFor="lot_INSPECTOR";
-  const ins=el("input");ins.type="text";ins.id="lot_INSPECTOR";ins.placeholder="NAME";
-  ins.oninput=()=>{ins.value=ins.value.toUpperCase();V.INSPECTOR=ins.value;try{localStorage.setItem("ett_insp",ins.value)}catch(e){};saveDraft()};
-  try{const s=localStorage.getItem("ett_insp");if(s){ins.value=s;V.INSPECTOR=s}}catch(e){}
-  il.append(ins);il.append(el("div","hint","จำไว้ในเครื่องนี้"));g2.append(il);
+  const inspectorList=window.INSPECTORS||[];
+  let ins;
+  if(inspectorList.length){
+    ins=el("select");ins.id="lot_INSPECTOR";
+    ins.innerHTML='<option value="">— SELECT (เลือก) —</option>'+inspectorList.map(n=>'<option value="'+esc(n)+'">'+esc(n)+'</option>').join("");
+    ins.onchange=()=>{V.INSPECTOR=ins.value;try{localStorage.setItem("ett_insp",ins.value)}catch(e){};saveDraft()};
+    try{const s=localStorage.getItem("ett_insp");if(s&&inspectorList.includes(s)){ins.value=s;V.INSPECTOR=s}}catch(e){}
+    il.append(ins);il.append(el("div","hint","จัดการรายชื่อผู้ตรวจได้ที่หน้า Setup"));
+  } else {
+    ins=el("input");ins.type="text";ins.id="lot_INSPECTOR";ins.placeholder="NAME";
+    ins.oninput=()=>{ins.value=ins.value.toUpperCase();V.INSPECTOR=ins.value;try{localStorage.setItem("ett_insp",ins.value)}catch(e){};saveDraft()};
+    try{const s=localStorage.getItem("ett_insp");if(s){ins.value=s;V.INSPECTOR=s}}catch(e){}
+    il.append(ins);il.append(el("div","hint","ยังไม่มีรายชื่อผู้ตรวจในระบบ — เพิ่มได้ที่หน้า Setup"));
+  }
+  g2.append(il);
 
   const dl=wrapF("Date / time","วันที่ / เวลา");dl.htmlFor="lot_DT";
   const d=el("input");d.type="datetime-local";d.id="lot_DT";d.style.textTransform="none";
@@ -777,6 +788,7 @@ function initTopbar(){
   const who=$("#whoami");
   if(who)who.innerHTML="<b>"+esc(SESSION.fullName||SESSION.username)+"</b><span class=\"role-badge "+SESSION.role+"\">"+SESSION.role+"</span>";
   const adminLnk=$("#lnkAdmin");if(adminLnk)adminLnk.hidden=!hasRole(ROLES.ADMIN);
+  const setupLnk=$("#lnkSetup");if(setupLnk)setupLnk.hidden=!hasRole(ROLES.ADMIN);
   const out=$("#btnLogout");
   if(out)out.onclick=async()=>{try{await API.logout()}catch(e){}clearSession();location.href="login.html"};
 }

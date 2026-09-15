@@ -19,6 +19,7 @@
   <div class="top-right">
     <span class="conn" id="conn"><span class="dot"></span><span id="connTxt">Connecting…</span></span>
     <a class="btn sm" id="lnkDashboard" href="dashboard.html">Dashboard</a>
+    <a class="btn sm" id="lnkSetup" href="setup.html" hidden>Setup</a>
     <a class="btn sm" id="lnkAdmin" href="admin.html" hidden>Admin</a>
     <span class="whoami" id="whoami"></span>
     <button class="btn sm" id="btnLogout">Logout <span class="th">(ออกจากระบบ)</span></button>
@@ -76,19 +77,38 @@
 
 <script src="api.js"></script>
 <script>
-/* Master data is loaded from a file so it can be refreshed without touching the app code. */
+/* Master data (softness/wet-blue/colour/reject standards) and the inspector list now live in
+   the Google Sheet, editable from setup.html, instead of a static master-data.json file. Both
+   are cached to localStorage so the entry form still opens if the device is briefly offline. */
 if (requireLogin()) {
-  fetch("master-data.json")
-    .then(r => r.json())
-    .then(m => {
-      window.M = m;
+  var MD_CACHE_KEY = "ett_masterdata_cache";
+  var INS_CACHE_KEY = "ett_inspectors_cache";
+  Promise.all([API.getMasterData(), API.listInspectors()])
+    .then(function (results) {
+      var md = results[0], ins = results[1];
+      var M, names;
+      if (md.ok) {
+        M = { ART: md.art, WB: md.wb, COL: md.col, RJ: md.rj, GRP: md.grp, FIN: md.fin };
+        try { localStorage.setItem(MD_CACHE_KEY, JSON.stringify(M)); } catch (e) {}
+      } else {
+        try { M = JSON.parse(localStorage.getItem(MD_CACHE_KEY) || "null"); } catch (e) { M = null; }
+        if (!M) throw new Error(md.error || "โหลดข้อมูลมาตรฐานไม่สำเร็จ และไม่มีข้อมูลที่แคชไว้ในเครื่องนี้");
+      }
+      if (ins.ok) {
+        names = ins.inspectors.filter(function (x) { return x.active !== false; }).map(function (x) { return x.name; });
+        try { localStorage.setItem(INS_CACHE_KEY, JSON.stringify(names)); } catch (e) {}
+      } else {
+        try { names = JSON.parse(localStorage.getItem(INS_CACHE_KEY) || "[]"); } catch (e) { names = []; }
+      }
+      window.M = M;
+      window.INSPECTORS = names;
       var s = document.createElement("script");
       s.src = "app.js";
       document.body.appendChild(s);
     })
     .catch(e => {
       document.body.insertAdjacentHTML("afterbegin",
-        '<p style="padding:16px;font-family:monospace;color:#AB3B27">Could not load master-data.json</p>');
+        '<p style="padding:16px;font-family:monospace;color:#AB3B27">โหลดข้อมูลมาตรฐานไม่สำเร็จ (Could not load master data): ' + (e && e.message ? e.message : e) + '</p>');
     });
 }
 </script>

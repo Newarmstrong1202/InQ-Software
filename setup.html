@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ตั้งค่าข้อมูลหลัก · ETT In-Process Quality</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="app.css">
+<style>
+body{margin:0}[hidden]{display:none!important}
+.page{max-width:1400px;margin:0 auto;padding:20px;padding-block:20px 80px}
+.tabNav{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.tabBtn{padding:9px 16px;min-height:38px;border-radius:5px;border:1px solid var(--line-2);background:var(--surface);color:var(--ink-2);font-family:var(--sans);font-size:13.5px;cursor:pointer}
+.tabBtn.active{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.toolbar{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:12px}
+.toolbar input[type=search]{max-width:280px}
+table.mdt{width:100%;border-collapse:collapse;font-size:13px}
+table.mdt th{text-align:left;font-family:var(--mono);font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3);padding:7px 9px;border-bottom:1px solid var(--line);white-space:nowrap}
+table.mdt td{padding:6px 9px;border-bottom:1px solid var(--line);vertical-align:middle}
+table.mdt input[type=text],table.mdt input[type=number]{padding:6px 8px;font-size:12.5px}
+table.mdt select{padding:6px 8px;font-size:12.5px}
+.rowActs{white-space:nowrap}
+.rowActs .danger{color:var(--fail);border-color:var(--fail)}
+.stageChks{display:flex;flex-wrap:wrap;gap:6px 10px;min-width:220px}
+.stagechk{display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--ink-2);white-space:nowrap}
+.addGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px 12px}
+@media (max-width:700px){.addGrid{grid-template-columns:1fr 1fr}}
+.pager{display:flex;align-items:center;gap:10px;margin-top:12px}
+.muted{color:var(--ink-3);font-size:12px}
+.tablewrap{overflow-x:auto}
+summary.btn{list-style:none}
+summary.btn::-webkit-details-marker{display:none}
+</style>
+</head>
+<body>
+<div class="top"><div class="top-in">
+  <div class="brand">
+    <h1>Setup / Master Data <span class="th">(ตั้งค่าข้อมูลหลัก)</span></h1>
+    <p>ETT Tannery · Admin only</p>
+  </div>
+  <div class="top-right">
+    <a class="btn sm" href="index.html">← Entry <span class="th">(หน้าบันทึก)</span></a>
+    <a class="btn sm" href="dashboard.html">Dashboard</a>
+    <a class="btn sm" href="admin.html">Users</a>
+    <span class="whoami" id="whoami"></span>
+    <button class="btn sm" id="btnLogout">Logout <span class="th">(ออกจากระบบ)</span></button>
+  </div>
+</div></div>
+
+<div class="page">
+  <div class="tabNav" id="tabNav"></div>
+
+  <div class="toolbar">
+    <input type="search" id="searchBox" placeholder="ค้นหา… (search)">
+    <span class="muted">แก้ไขค่าในตาราง แล้วกด “บันทึก” ทีละแถว — มีผลทันทีกับทุกอุปกรณ์ที่ใช้งานอยู่</span>
+  </div>
+
+  <section class="card" id="masterPanel">
+    <div class="card-hd"><h2 id="masterTitle"></h2><span class="rid" id="masterCount"></span></div>
+    <div class="card-bd">
+      <details style="margin-bottom:14px">
+        <summary class="btn sm" style="display:inline-block;cursor:pointer">+ เพิ่มแถวใหม่ (Add row)</summary>
+        <div id="addRowBox" style="margin-top:12px"></div>
+      </details>
+      <div class="tablewrap">
+        <table class="mdt">
+          <thead id="masterThead"></thead>
+          <tbody id="masterTbody"></tbody>
+        </table>
+      </div>
+      <div class="pager" id="masterPager"></div>
+    </div>
+  </section>
+
+  <section class="card" id="inspectorPanel" hidden>
+    <div class="card-hd"><h2>รายชื่อผู้ตรวจ <span class="th">(Inspectors)</span></h2><span class="rid" id="insCount"></span></div>
+    <div class="card-bd">
+      <form id="insAddForm" style="display:flex;gap:10px;align-items:end;margin-bottom:16px;flex-wrap:wrap">
+        <label class="f" style="margin:0"><span class="lb">ชื่อผู้ตรวจใหม่ (New name)</span><input type="text" id="insNewName" style="text-transform:uppercase;width:220px" required></label>
+        <button type="submit" class="btn primary sm">+ เพิ่ม (Add)</button>
+      </form>
+      <div class="tablewrap">
+        <table class="mdt">
+          <thead><tr><th>ชื่อผู้ตรวจ (Name)</th><th>ใช้งานอยู่ (Active)</th><th></th></tr></thead>
+          <tbody id="insRows"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+</div>
+<datalist id="phaseList"></datalist>
+<div id="toast"></div>
+<script src="api.js"></script>
+<script>
+"use strict";
+const SESSION = requireLogin([ROLES.ADMIN]);
+
+function initTopbar(){
+  const who=document.getElementById("whoami");
+  who.innerHTML="<b>"+SESSION.fullName+"</b><span class=\"role-badge "+SESSION.role+"\">"+SESSION.role+"</span>";
+  document.getElementById("btnLogout").onclick=async()=>{try{await API.logout()}catch(e){}clearSession();location.href="login.html"};
+}
+function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+function toast(m,err){const t=document.createElement("div");t.className="toast"+(err?" err":"");t.textContent=m;document.getElementById("toast").append(t);setTimeout(()=>t.remove(),3200)}
+
+let MASTER=null, INSPECTORS=[], RJ_STAGES=[], RJ_PHASES=[];
+let ACTIVE_TAB="ART", INS_SEARCH="";
+const PAGE_SIZE=25;
+
+const TYPES={
+  ART:{
+    label:"มาตรฐานความนุ่ม (ART / Softness)",
+    toFlat:r=>({__row:r.__row,Article:r.a,Thickness:r.t,Brand:r.b||"",Neck:r.s[0],Belly:r.s[1],Butt:r.s[2]}),
+    cols:[{h:"Article",w:160},{h:"Thickness",w:90},{h:"Brand",w:120},
+      {h:"Neck",type:"number",w:70},{h:"Belly",type:"number",w:70},{h:"Butt",type:"number",w:70}],
+    rows:[]
+  },
+  WB:{
+    label:"สเปคเวทบลู (WB / Wet-Blue)",
+    toFlat:r=>({__row:r.__row,Article:r.a,Thickness:r.t,Note:r.n||"",Tannery:r.ty||"",Brand:r.bd||"",Grade:r.g||"",
+      Hide:r.h||"",Supplier:r.sp||"",MaterialCode:r.mc||"",AltHide:r.ah||"",AltSupplier:r.asp||"",AltMaterialCode:r.amc||"",
+      CalfHide:r.ch||"",CalfSupplier:r.csp||"",CalfMaterialCode:r.cmc||"",NewHide:r.nh||"",NewSupplier:r.nsp||"",NewMaterialCode:r.nmc||""}),
+    cols:["Article","Thickness","Note","Tannery","Brand","Grade","Hide","Supplier","MaterialCode",
+      "AltHide","AltSupplier","AltMaterialCode","CalfHide","CalfSupplier","CalfMaterialCode","NewHide","NewSupplier","NewMaterialCode"]
+      .map(h=>({h:h,w:h==="Article"?140:110})),
+    rows:[]
+  },
+  COL:{
+    label:"รหัสสี (COL / Colour)",
+    toFlat:r=>({__row:r.__row,Article:r.article,ColourCode:r.colourCode,Description:r.description||"",Active:!!r.active}),
+    cols:[{h:"Article",w:220},{h:"ColourCode",w:100},{h:"Description",w:240},{h:"Active",type:"checkbox"}],
+    rows:[]
+  },
+  RJ:{
+    label:"เหตุผลรีเจค (RJ / Reject reasons)",
+    toFlat:r=>({__row:r.__row,Code:r.code,ShortCode:r.shortCode||"",NameEN:r.nameEN||"",NameTH:r.nameTH||"",
+      GroupIdx:r.groupIdx||0,Phase:r.phase||"",Stages:(r.stages||[]).join(",")}),
+    cols:[{h:"Code",w:70},{h:"ShortCode",w:90},{h:"NameEN",w:190},{h:"NameTH",w:210},
+      {h:"GroupIdx",type:"select-group",w:150},{h:"Phase",type:"select-phase",w:150},{h:"Stages",type:"stages"}],
+    rows:[]
+  }
+};
+Object.keys(TYPES).forEach(k=>TYPES[k].state={search:"",page:0});
+
+async function loadMaster(){
+  const r=await API.getMasterData();
+  if(!r.ok){toast(r.error||"โหลดข้อมูลไม่สำเร็จ",true);return false}
+  MASTER=r;
+  RJ_STAGES=[...new Set(r.rjRows.flatMap(x=>x.stages||[]))].sort();
+  RJ_PHASES=[...new Set(r.rjRows.map(x=>x.phase).filter(Boolean))].sort();
+  document.getElementById("phaseList").innerHTML=RJ_PHASES.map(p=>'<option value="'+esc(p)+'">').join("");
+  TYPES.ART.rows=r.art.map(TYPES.ART.toFlat);
+  TYPES.WB.rows=r.wb.map(TYPES.WB.toFlat);
+  TYPES.COL.rows=r.colRows.map(TYPES.COL.toFlat);
+  TYPES.RJ.rows=r.rjRows.map(TYPES.RJ.toFlat);
+  return true;
+}
+async function loadInspectors(){
+  const r=await API.listInspectors();
+  if(!r.ok){toast(r.error||"โหลดรายชื่อผู้ตรวจไม่สำเร็จ",true);return false}
+  INSPECTORS=r.inspectors;
+  return true;
+}
+async function reloadAndRender(){ if(await loadMaster()) renderActive(); }
+async function reloadInspectorsAndRender(){ if(await loadInspectors()) renderInspectors(); }
+
+function fmtGroupOptions(current){
+  return MASTER.grp.map((label,i)=> i===0?"":'<option value="'+i+'"'+(Number(current)===i?" selected":"")+'>'+i+" — "+esc(label)+'</option>').join("");
+}
+
+function inputForCol(c,value){
+  const v=value==null?"":value;
+  if(c.type==="number") return '<input type="number" step="any" data-h="'+c.h+'" value="'+esc(v)+'" style="width:'+(c.w||70)+'px">';
+  if(c.type==="checkbox") return '<input type="checkbox" data-h="'+c.h+'" '+(v?"checked":"")+'>';
+  if(c.type==="select-group") return '<select data-h="'+c.h+'" style="width:'+(c.w||150)+'px">'+fmtGroupOptions(v)+'</select>';
+  if(c.type==="select-phase") return '<input type="text" list="phaseList" data-h="'+c.h+'" value="'+esc(v)+'" style="width:'+(c.w||150)+'px">';
+  if(c.type==="stages") return '<div class="stageChks" data-h="'+c.h+'">'+RJ_STAGES.map(s=>
+    '<label class="stagechk"><input type="checkbox" value="'+esc(s)+'" '+((String(v||"").split(",").indexOf(s)!==-1)?"checked":"")+'> '+esc(s)+'</label>').join("")+'</div>';
+  return '<input type="text" data-h="'+c.h+'" value="'+esc(v)+'" style="width:'+(c.w||120)+'px">';
+}
+function gatherRow(cfg,container){
+  const row={};
+  cfg.cols.forEach(c=>{
+    if(c.type==="stages"){
+      const box=container.querySelector('[data-h="'+c.h+'"]');
+      row[c.h]=[...box.querySelectorAll('input[type=checkbox]:checked')].map(x=>x.value).join(",");
+    } else {
+      const el=container.querySelector('[data-h="'+c.h+'"]');
+      row[c.h]= el.type==="checkbox" ? el.checked : el.value;
+    }
+  });
+  return row;
+}
+
+function renderTabs(){
+  const keys=[...Object.keys(TYPES),"INS"];
+  document.getElementById("tabNav").innerHTML=keys.map(k=>
+    '<button type="button" class="tabBtn'+(k===ACTIVE_TAB?" active":"")+'" data-tab="'+k+'">'+
+    esc(k==="INS"?"ผู้ตรวจ (Inspectors)":TYPES[k].label)+'</button>'
+  ).join("");
+  document.querySelectorAll(".tabBtn").forEach(b=>b.onclick=()=>{ACTIVE_TAB=b.dataset.tab;renderActive()});
+}
+function renderActive(){
+  renderTabs();
+  document.getElementById("searchBox").value = ACTIVE_TAB==="INS" ? INS_SEARCH : TYPES[ACTIVE_TAB].state.search;
+  if(ACTIVE_TAB==="INS"){
+    document.getElementById("masterPanel").hidden=true;
+    document.getElementById("inspectorPanel").hidden=false;
+    renderInspectors();
+  } else {
+    document.getElementById("masterPanel").hidden=false;
+    document.getElementById("inspectorPanel").hidden=true;
+    renderMasterTable(ACTIVE_TAB);
+  }
+}
+
+function renderMasterTable(typeKey){
+  const cfg=TYPES[typeKey], st=cfg.state;
+  const q=st.search.trim().toLowerCase();
+  const filtered=!q?cfg.rows:cfg.rows.filter(row=>cfg.cols.some(c=>String(row[c.h]==null?"":row[c.h]).toLowerCase().indexOf(q)!==-1));
+  const totalPages=Math.max(1,Math.ceil(filtered.length/PAGE_SIZE));
+  if(st.page>=totalPages) st.page=totalPages-1;
+  if(st.page<0) st.page=0;
+  const pageRows=filtered.slice(st.page*PAGE_SIZE, st.page*PAGE_SIZE+PAGE_SIZE);
+
+  document.getElementById("masterTitle").textContent=cfg.label;
+  document.getElementById("masterCount").textContent=filtered.length+" รายการ"+(q?(" (จากทั้งหมด "+cfg.rows.length+")"):"");
+  document.getElementById("masterThead").innerHTML="<tr>"+cfg.cols.map(c=>'<th>'+esc(c.h)+'</th>').join("")+"<th></th></tr>";
+
+  const tbody=document.getElementById("masterTbody");
+  tbody.innerHTML=pageRows.map(row=>
+    '<tr data-row="'+row.__row+'">'+cfg.cols.map(c=>'<td>'+inputForCol(c,row[c.h])+'</td>').join("")+
+    '<td class="rowActs"><button type="button" class="btn sm saveBtn">บันทึก</button> <button type="button" class="btn sm danger delBtn">ลบ</button></td></tr>'
+  ).join("");
+
+  tbody.querySelectorAll(".saveBtn").forEach(btn=>btn.onclick=async()=>{
+    const tr=btn.closest("tr"), rowNum=Number(tr.dataset.row), rowObj=gatherRow(cfg,tr);
+    btn.disabled=true;
+    const r=await API.saveMasterRow(typeKey,rowNum,rowObj);
+    if(r.ok){toast("บันทึกแล้ว");await reloadAndRender()} else {toast(r.error||"บันทึกไม่สำเร็จ",true);btn.disabled=false}
+  });
+  tbody.querySelectorAll(".delBtn").forEach(btn=>btn.onclick=async()=>{
+    if(btn.dataset.confirm!=="1"){btn.dataset.confirm="1";btn.textContent="ยืนยันลบ?";setTimeout(()=>{btn.dataset.confirm="";btn.textContent="ลบ"},3000);return}
+    const tr=btn.closest("tr"), rowNum=Number(tr.dataset.row);
+    btn.disabled=true;
+    const r=await API.deleteMasterRow(typeKey,rowNum);
+    if(r.ok){toast("ลบแล้ว");await reloadAndRender()} else {toast(r.error||"ลบไม่สำเร็จ",true);btn.disabled=false;btn.dataset.confirm="";btn.textContent="ลบ"}
+  });
+
+  document.getElementById("masterPager").innerHTML=
+    '<button type="button" class="btn sm" id="pgPrev" '+(st.page<=0?"disabled":"")+'>← ก่อนหน้า</button>'+
+    '<span class="muted">หน้า '+(st.page+1)+' / '+totalPages+'</span>'+
+    '<button type="button" class="btn sm" id="pgNext" '+(st.page>=totalPages-1?"disabled":"")+'>ถัดไป →</button>';
+  document.getElementById("pgPrev").onclick=()=>{st.page--;renderMasterTable(typeKey)};
+  document.getElementById("pgNext").onclick=()=>{st.page++;renderMasterTable(typeKey)};
+
+  const addBox=document.getElementById("addRowBox");
+  addBox.innerHTML='<div class="addGrid">'+cfg.cols.map(c=>
+    '<label class="f" style="margin:0"><span class="lb">'+esc(c.h)+'</span>'+inputForCol(c,c.type==="checkbox"?false:"")+'</label>'
+  ).join("")+'</div><button type="button" class="btn primary sm" id="addRowBtn" style="margin-top:12px">+ เพิ่มแถวใหม่</button>';
+  document.getElementById("addRowBtn").onclick=async()=>{
+    const rowObj=gatherRow(cfg,addBox);
+    const keyCol=cfg.cols[0].h;
+    if(!String(rowObj[keyCol]||"").trim()){toast("กรุณาใส่ "+keyCol,true);return}
+    const btn=document.getElementById("addRowBtn"); btn.disabled=true;
+    const r=await API.saveMasterRow(typeKey,0,rowObj);
+    btn.disabled=false;
+    if(r.ok){toast("เพิ่มแล้ว");await reloadAndRender()} else toast(r.error||"เพิ่มไม่สำเร็จ",true);
+  };
+}
+
+function renderInspectors(){
+  const q=INS_SEARCH.trim().toLowerCase();
+  const filtered=!q?INSPECTORS:INSPECTORS.filter(i=>String(i.name||"").toLowerCase().indexOf(q)!==-1);
+  document.getElementById("insCount").textContent=filtered.length+" คน";
+  const box=document.getElementById("insRows"); box.innerHTML="";
+  filtered.forEach(ins=>{
+    const tr=document.createElement("tr");
+    tr.dataset.origName=ins.name;
+    tr.innerHTML=
+      '<td><input type="text" class="insNameInput" value="'+esc(ins.name)+'" style="width:200px;text-transform:uppercase"></td>'+
+      '<td><input type="checkbox" class="insActiveChk" '+(ins.active?"checked":"")+'></td>'+
+      '<td><button type="button" class="btn sm insSaveBtn">บันทึก</button></td>';
+    box.append(tr);
+  });
+  box.querySelectorAll(".insActiveChk").forEach(chk=>chk.onchange=async()=>{
+    const tr=chk.closest("tr");
+    const r=await API.updateInspector({name:tr.dataset.origName,active:chk.checked});
+    if(r.ok){toast("อัปเดตแล้ว");await reloadInspectorsAndRender()} else {toast(r.error||"ผิดพลาด",true);chk.checked=!chk.checked}
+  });
+  box.querySelectorAll(".insSaveBtn").forEach(btn=>btn.onclick=async()=>{
+    const tr=btn.closest("tr");
+    const newName=tr.querySelector(".insNameInput").value.trim();
+    if(!newName){toast("ใส่ชื่อผู้ตรวจ",true);return}
+    if(newName.toUpperCase()===String(tr.dataset.origName).toUpperCase()){toast("ไม่มีการเปลี่ยนแปลง");return}
+    btn.disabled=true;
+    const r=await API.updateInspector({name:tr.dataset.origName,newName:newName});
+    btn.disabled=false;
+    if(r.ok){toast("บันทึกแล้ว: "+newName.toUpperCase());await reloadInspectorsAndRender()} else toast(r.error||"บันทึกไม่สำเร็จ",true);
+  });
+}
+
+document.getElementById("searchBox").addEventListener("input",e=>{
+  const v=e.target.value;
+  if(ACTIVE_TAB==="INS"){INS_SEARCH=v;renderInspectors()}
+  else {TYPES[ACTIVE_TAB].state.search=v;TYPES[ACTIVE_TAB].state.page=0;renderMasterTable(ACTIVE_TAB)}
+});
+document.getElementById("insAddForm").addEventListener("submit",async e=>{
+  e.preventDefault();
+  const name=document.getElementById("insNewName").value.trim();
+  if(!name) return toast("ใส่ชื่อผู้ตรวจ",true);
+  const r=await API.addInspector(name);
+  if(r.ok){toast("เพิ่มแล้ว: "+name.toUpperCase());e.target.reset();await reloadInspectorsAndRender()}
+  else toast(r.error||"เพิ่มไม่สำเร็จ",true);
+});
+
+initTopbar();
+(async function init(){
+  const [okM]=await Promise.all([loadMaster(),loadInspectors()]);
+  renderActive();
+})();
+</script>
+</body>
+</html>

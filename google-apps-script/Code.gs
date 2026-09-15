@@ -24,7 +24,12 @@ var SHEETS = {
   SESSIONS: "Sessions",
   RECORDS: "Records",
   LOTS: "Lots",
-  STANDARDS: "Standards"
+  STANDARDS: "Standards",
+  MASTER_ART: "MasterART",
+  MASTER_WB: "MasterWB",
+  MASTER_COL: "MasterCOL",
+  MASTER_RJ: "MasterRJ",
+  INSPECTORS: "Inspectors"
 };
 
 var HEADERS = {
@@ -34,8 +39,22 @@ var HEADERS = {
     "Customer", "Tannery", "Inspector", "RecordedBy", "Result", "Decision",
     "MainDefect", "MainDefectName", "RejectsJSON", "ValuesJSON", "ComputedJSON", "Note"],
   Lots: ["LotNo", "Article", "Colour", "Customer", "Substance", "Tannery", "QtySF", "Pieces", "UpdatedAt"],
-  Standards: ["Key", "Article", "Substance", "Stage", "ParamsJSON", "UpdatedAt", "UpdatedBy"]
+  Standards: ["Key", "Article", "Substance", "Stage", "ParamsJSON", "UpdatedAt", "UpdatedBy"],
+  /* Master data — editable via setup.html so nobody needs to touch build_master_data.py or
+     redeploy just to fix a softness target, a wet-blue spec, a colour code or a reject reason. */
+  MasterART: ["Article", "Thickness", "Brand", "Neck", "Belly", "Butt"],
+  MasterWB: ["Article", "Thickness", "Note", "Tannery", "Brand", "Grade",
+    "Hide", "Supplier", "MaterialCode", "AltHide", "AltSupplier", "AltMaterialCode",
+    "CalfHide", "CalfSupplier", "CalfMaterialCode", "NewHide", "NewSupplier", "NewMaterialCode"],
+  MasterCOL: ["Article", "ColourCode", "Description", "Active"],
+  MasterRJ: ["Code", "ShortCode", "NameEN", "NameTH", "GroupIdx", "Phase", "Stages"],
+  Inspectors: ["Name", "Active", "CreatedAt"]
 };
+
+/* Fixed lookup enums used by RJ (GroupIdx) — same order as the old master-data.json GRP/FIN
+   arrays. Rarely change, so kept as code rather than another sheet. Index 0 is always blank. */
+var GRP = ["", "MANUFACTURING", "NATURAL DEFECTS & MATERIAL", "TRANSFER", "COLOR", "OTHER"];
+var FIN = ["", "NUBUCK LIGHT", "SEMI ANILINE", "NUBUCK DARK", "PIGMENTED", "BUFFED-OIL", "EMBOSS", "CORRECTED GRAIN"];
 
 /* ---------------------------- one-time setup ---------------------------- */
 function setup() {
@@ -148,6 +167,13 @@ function doPost(e) {
       case "updateUser": return _updateUser(payload);
       case "deleteUser": return _deleteUser(payload);
       case "changePassword": return _changePassword(payload);
+      case "getMasterData": return _getMasterData(payload);
+      case "saveMasterRow": return _saveMasterRow(payload);
+      case "deleteMasterRow": return _deleteMasterRow(payload);
+      case "listInspectors": return _listInspectors(payload);
+      case "addInspector": return _addInspector(payload);
+      case "updateInspector": return _updateInspector(payload);
+      case "deleteInspector": return _deleteInspector(payload);
       default: return _err("Unknown action: " + action, "BAD_REQUEST");
     }
   } catch (err) {
@@ -353,6 +379,171 @@ function _changePassword(p) {
     }
   }
   return _err("ไม่พบผู้ใช้", "NOT_FOUND");
+}
+
+/* ---------------------------- master data (ART/WB/COL/RJ) ---------------------------- */
+/* Field-name maps: the sheet's HEADERS columns, in order, as the client sends/receives them
+   in `row` for saveMasterRow. Keeping this centralized means one switch, not four near-duplicate
+   functions. */
+var MASTER_TYPES = {
+  ART: { sheet: SHEETS.MASTER_ART, headers: HEADERS.MasterART },
+  WB: { sheet: SHEETS.MASTER_WB, headers: HEADERS.MasterWB },
+  COL: { sheet: SHEETS.MASTER_COL, headers: HEADERS.MasterCOL },
+  RJ: { sheet: SHEETS.MASTER_RJ, headers: HEADERS.MasterRJ }
+};
+
+function _getMasterData(p) {
+  _requireAuth(p.token, null);
+
+  var artRows = _rowsToObjects(_sheet(SHEETS.MASTER_ART));
+  var art = artRows.map(function (r) {
+    return { __row: r.__row, a: r.Article, t: r.Thickness, b: r.Brand, s: [Number(r.Neck) || 0, Number(r.Belly) || 0, Number(r.Butt) || 0] };
+  });
+
+  var wbRows = _rowsToObjects(_sheet(SHEETS.MASTER_WB));
+  var wb = wbRows.map(function (r) {
+    return {
+      __row: r.__row, a: r.Article, t: r.Thickness, n: r.Note || "", ty: r.Tannery || "", bd: r.Brand || "",
+      g: r.Grade || "", h: r.Hide || "", sp: r.Supplier || "", mc: r.MaterialCode || "",
+      ah: r.AltHide || "", asp: r.AltSupplier || "", amc: r.AltMaterialCode || "",
+      ch: r.CalfHide || "", csp: r.CalfSupplier || "", cmc: r.CalfMaterialCode || "",
+      nh: r.NewHide || "", nsp: r.NewSupplier || "", nmc: r.NewMaterialCode || ""
+    };
+  });
+
+  var colRows = _rowsToObjects(_sheet(SHEETS.MASTER_COL));
+  var col = {}; // grouped shape app.js expects: { ARTICLE: [[code,desc,activeFlag], ...] }
+  var colFlat = colRows.map(function (r) {
+    var active = r.Active === true || r.Active === "TRUE" || r.Active === 1 ? 1 : 0;
+    (col[r.Article] = col[r.Article] || []).push([String(r.ColourCode), r.Description || "", active]);
+    return { __row: r.__row, article: r.Article, colourCode: r.ColourCode, description: r.Description || "", active: active };
+  });
+
+  var rjRows = _rowsToObjects(_sheet(SHEETS.MASTER_RJ));
+  var rj = []; // bare-array shape app.js expects: [code, shortCode, en, th, groupIdx, phase, [stages]]
+  var rjFlat = rjRows.map(function (r) {
+    var stages = String(r.Stages || "").split(",").map(function (s) { return s.trim(); }).filter(Boolean);
+    rj.push([String(r.Code), r.ShortCode || "", r.NameEN || "", r.NameTH || "", Number(r.GroupIdx) || 0, r.Phase || "", stages]);
+    return { __row: r.__row, code: r.Code, shortCode: r.ShortCode || "", nameEN: r.NameEN || "", nameTH: r.NameTH || "", groupIdx: Number(r.GroupIdx) || 0, phase: r.Phase || "", stages: stages };
+  });
+
+  return _json({ ok: true, art: art, wb: wb, col: col, colRows: colFlat, rj: rj, rjRows: rjFlat, grp: GRP, fin: FIN });
+}
+
+function _saveMasterRow(p) {
+  _requireAuth(p.token, [ROLES.ADMIN]);
+  var def = MASTER_TYPES[p.type];
+  if (!def) return _err("ชนิดข้อมูลไม่ถูกต้อง", "BAD_REQUEST");
+  var row = p.row || {};
+  var sh = _sheet(def.sheet);
+  var vals = def.headers.map(function (h) {
+    var v = row[h];
+    return v == null ? "" : v;
+  });
+  var rowNum = Number(p.rowNum) || 0;
+  if (rowNum > 1) {
+    sh.getRange(rowNum, 1, 1, vals.length).setValues([vals]);
+  } else {
+    sh.appendRow(vals);
+  }
+  return _json({ ok: true });
+}
+
+function _deleteMasterRow(p) {
+  _requireAuth(p.token, [ROLES.ADMIN]);
+  var def = MASTER_TYPES[p.type];
+  if (!def) return _err("ชนิดข้อมูลไม่ถูกต้อง", "BAD_REQUEST");
+  var rowNum = Number(p.rowNum) || 0;
+  if (rowNum < 2) return _err("แถวไม่ถูกต้อง", "BAD_REQUEST");
+  _sheet(def.sheet).deleteRow(rowNum);
+  return _json({ ok: true });
+}
+
+/* ---------------------------- inspectors ---------------------------- */
+function _listInspectors(p) {
+  _requireAuth(p.token, null);
+  var rows = _rowsToObjects(_sheet(SHEETS.INSPECTORS));
+  var out = rows.map(function (r) { return { name: r.Name, active: r.Active !== false }; });
+  out.sort(function (a, b) { return a.name.localeCompare(b.name); });
+  return _json({ ok: true, inspectors: out });
+}
+
+function _addInspector(p) {
+  _requireAuth(p.token, [ROLES.ADMIN]);
+  var name = String(p.name || "").trim().toUpperCase();
+  if (!name) return _err("ใส่ชื่อผู้ตรวจ", "BAD_REQUEST");
+  var sh = _sheet(SHEETS.INSPECTORS);
+  var rows = _rowsToObjects(sh);
+  if (rows.some(function (r) { return String(r.Name).toUpperCase() === name; })) {
+    return _err("มีชื่อนี้อยู่แล้ว", "CONFLICT");
+  }
+  sh.appendRow([name, true, new Date()]);
+  return _json({ ok: true });
+}
+
+function _updateInspector(p) {
+  _requireAuth(p.token, [ROLES.ADMIN]);
+  var name = String(p.name || "").trim().toUpperCase();
+  var sh = _sheet(SHEETS.INSPECTORS);
+  var data = sh.getDataRange().getValues();
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][0]).toUpperCase() === name) {
+      if (p.active != null) sh.getRange(i + 1, 2).setValue(!!p.active);
+      if (p.newName) sh.getRange(i + 1, 1).setValue(String(p.newName).trim().toUpperCase());
+      return _json({ ok: true });
+    }
+  }
+  return _err("ไม่พบชื่อผู้ตรวจ", "NOT_FOUND");
+}
+
+function _deleteInspector(p) {
+  _requireAuth(p.token, [ROLES.ADMIN]);
+  var name = String(p.name || "").trim().toUpperCase();
+  var sh = _sheet(SHEETS.INSPECTORS);
+  var data = sh.getDataRange().getValues();
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][0]).toUpperCase() === name) { sh.getRange(i + 1, 2).setValue(false); return _json({ ok: true }); }
+  }
+  return _err("ไม่พบชื่อผู้ตรวจ", "NOT_FOUND");
+}
+
+/* ------------------ one-time migration: pull master-data.json into the sheets ------------------
+   Run this manually from the Apps Script editor ONCE after deploying the sheets/columns above.
+   It fetches the already-published master-data.json straight from GitHub (Apps Script's own
+   network, not restricted the way a sandboxed dev environment's might be) so nobody has to
+   hand-copy ~2,700 rows. Safe to re-run: it clears each sheet's data rows first. */
+function importMasterData() {
+  var url = "https://raw.githubusercontent.com/Newarmstrong1202/InQ-Software/main/master-data.json";
+  var m = JSON.parse(UrlFetchApp.fetch(url).getContentText());
+
+  function clearAndWrite(sheetName, values) {
+    var sh = _sheet(sheetName);
+    var last = sh.getLastRow();
+    if (last > 1) sh.getRange(2, 1, last - 1, sh.getLastColumn()).clearContent();
+    if (values.length) sh.getRange(2, 1, values.length, values[0].length).setValues(values);
+  }
+
+  clearAndWrite(SHEETS.MASTER_ART, m.ART.map(function (x) {
+    return [x.a, x.t, x.b || "", (x.s && x.s[0]) || 0, (x.s && x.s[1]) || 0, (x.s && x.s[2]) || 0];
+  }));
+
+  clearAndWrite(SHEETS.MASTER_WB, m.WB.map(function (x) {
+    return [x.a, x.t, x.n || "", x.ty || "", x.bd || "", x.g || "", x.h || "", x.sp || "", x.mc || "",
+      x.ah || "", x.asp || "", x.amc || "", x.ch || "", x.csp || "", x.cmc || "", x.nh || "", x.nsp || "", x.nmc || ""];
+  }));
+
+  var colValues = [];
+  Object.keys(m.COL).forEach(function (article) {
+    m.COL[article].forEach(function (entry) { colValues.push([article, entry[0], entry[1] || "", !!entry[2]]); });
+  });
+  clearAndWrite(SHEETS.MASTER_COL, colValues);
+
+  clearAndWrite(SHEETS.MASTER_RJ, m.RJ.map(function (r) {
+    return [r[0], r[1] || "", r[2] || "", r[3] || "", r[4] || 0, r[5] || "", (r[6] || []).join(",")];
+  }));
+
+  Logger.log("Master data import complete: ART " + m.ART.length + ", WB " + m.WB.length +
+    ", COL " + colValues.length + ", RJ " + m.RJ.length);
 }
 
 function resetAdminPassword() {

@@ -40,6 +40,7 @@ body{margin:0}[hidden]{display:none!important}
   </div>
   <div class="top-right">
     <a class="btn sm" href="index.html">← Entry <span class="th">(หน้าบันทึก)</span></a>
+    <a class="btn sm" id="lnkSetup" href="setup.html" hidden>Setup</a>
     <a class="btn sm" id="lnkAdmin" href="admin.html" hidden>Admin</a>
     <span class="whoami" id="whoami"></span>
     <button class="btn sm" id="btnLogout">Logout <span class="th">(ออกจากระบบ)</span></button>
@@ -99,6 +100,7 @@ function initTopbar(){
   const who=document.getElementById("whoami");
   who.innerHTML="<b>"+esc(SESSION.fullName||SESSION.username)+"</b><span class=\"role-badge "+SESSION.role+"\">"+SESSION.role+"</span>";
   document.getElementById("lnkAdmin").hidden=!hasRole(ROLES.ADMIN);
+  document.getElementById("lnkSetup").hidden=!hasRole(ROLES.ADMIN);
   document.getElementById("btnLogout").onclick=async()=>{try{await API.logout()}catch(e){}clearSession();location.href="login.html"};
   document.getElementById("btnRefresh").onclick=load;
 }

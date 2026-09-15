@@ -62,5 +62,12 @@ var API = {
   addUser: function (u) { return apiRaw("addUser", u); },
   updateUser: function (u) { return apiRaw("updateUser", u); },
   deleteUser: function (username) { return apiRaw("deleteUser", { username: username }); },
-  changePassword: function (oldPassword, newPassword) { return apiRaw("changePassword", { oldPassword: oldPassword, newPassword: newPassword }); }
+  changePassword: function (oldPassword, newPassword) { return apiRaw("changePassword", { oldPassword: oldPassword, newPassword: newPassword }); },
+  getMasterData: function () { return apiRaw("getMasterData", {}); },
+  saveMasterRow: function (type, rowNum, row) { return apiRaw("saveMasterRow", { type: type, rowNum: rowNum, row: row }); },
+  deleteMasterRow: function (type, rowNum) { return apiRaw("deleteMasterRow", { type: type, rowNum: rowNum }); },
+  listInspectors: function () { return apiRaw("listInspectors", {}); },
+  addInspector: function (name) { return apiRaw("addInspector", { name: name }); },
+  updateInspector: function (u) { return apiRaw("updateInspector", u); },
+  deleteInspector: function (name) { return apiRaw("deleteInspector", { name: name }); }
 };
