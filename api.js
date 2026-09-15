@@ -29,9 +29,15 @@ function requireLogin(allowedRoles) {
   return s;
 }
 
+function _sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+
 /* Low-level call. Sends POST as text/plain so the browser never issues a CORS
-   preflight (Apps Script Web Apps cannot answer OPTIONS requests). */
-async function apiRaw(action, payload) {
+   preflight (Apps Script Web Apps cannot answer OPTIONS requests).
+   Google Sheets occasionally throttles a request under load (returns an HTML
+   error page instead of JSON, or the connection just fails) — retrying once
+   after a short pause clears almost all of those without the caller ever
+   seeing it, instead of the UI getting stuck showing "Connecting...". */
+async function apiRaw(action, payload, _isRetry) {
   var body = Object.assign({ action: action }, payload || {});
   var s = getSession();
   if (s && s.token && !body.token) body.token = s.token;
@@ -39,10 +45,14 @@ async function apiRaw(action, payload) {
   try {
     res = await fetch(API_BASE_URL, { method: "POST", body: JSON.stringify(body) });
   } catch (e) {
+    if (!_isRetry) { await _sleep(1000); return apiRaw(action, payload, true); }
     return { ok: false, code: "OFFLINE", error: "เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ (ออฟไลน์)" };
   }
   var data;
-  try { data = await res.json(); } catch (e) { return { ok: false, code: "ERROR", error: "รูปแบบข้อมูลตอบกลับผิดพลาด" }; }
+  try { data = await res.json(); } catch (e) {
+    if (!_isRetry) { await _sleep(1000); return apiRaw(action, payload, true); }
+    return { ok: false, code: "ERROR", error: "รูปแบบข้อมูลตอบกลับผิดพลาด" };
+  }
   if (!data.ok && data.code === "AUTH" && action !== "login") {
     clearSession();
     location.href = "login.html";
