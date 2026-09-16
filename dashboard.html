@@ -645,14 +645,22 @@ async function loadHistory(recordId){
 }
 
 async function load(){
-  const [r,re]=await Promise.all([API.getRecords({limit:20000}),API.getEditedRecordIds()]);
+  const r=await API.getRecords({limit:20000});
   if(!r.ok){toast(r.error||"โหลดข้อมูลไม่สำเร็จ",true);return}
   ALL=r.records;
-  EDITED=(re&&re.ok)?re.edited||{}:{};
-  document.getElementById("editedTabCount").textContent=Object.keys(EDITED).length?"("+Object.keys(EDITED).length+")":"";
   populateFilters();
   render();
-  if(ACTIVE_TAB==="edited") renderEditedData();
+  /* getEditedRecordIds() scans every row of AuditLog on the server, which gets slower as
+     that sheet grows. It used to run in Promise.all alongside getRecords() above, which
+     made the WHOLE dashboard wait on that full-table scan even though most visits never
+     open the "Edited" tab. Fetching it separately, after the main data has already
+     rendered, keeps the dashboard's perceived load time tied only to getRecords() — the
+     tab badge and the Edited view just fill in a moment later once this resolves. */
+  API.getEditedRecordIds().then(re=>{
+    EDITED=(re&&re.ok)?re.edited||{}:{};
+    document.getElementById("editedTabCount").textContent=Object.keys(EDITED).length?"("+Object.keys(EDITED).length+")":"";
+    if(ACTIVE_TAB==="edited") renderEditedData();
+  }).catch(()=>{});
 }
 
 ["fFrom","fTo","fStage","fArticle","fCustomer","fTannery","fInspector","fResult"].forEach(id=>{
