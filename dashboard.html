@@ -12,8 +12,11 @@
 <style>
 body{margin:0}[hidden]{display:none!important}
 .page{max-width:1400px;margin:0 auto;padding:20px;padding-block:20px 80px}
-.filters{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px 12px;align-items:end}
-@media (max-width:1080px){.filters{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.tabNav{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.tabBtn{padding:9px 16px;min-height:38px;border-radius:5px;border:1px solid var(--line-2);background:var(--surface);color:var(--ink-2);font-family:var(--sans);font-size:13.5px;cursor:pointer}
+.tabBtn.active{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.filters{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:10px 12px;align-items:end}
+@media (max-width:1200px){.filters{grid-template-columns:repeat(4,minmax(0,1fr))}}
 @media (max-width:600px){.filters{grid-template-columns:1fr 1fr}}
 .filters label.f{margin-bottom:0}
 .kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin:16px 0}
@@ -27,9 +30,56 @@ body{margin:0}[hidden]{display:none!important}
 .chart-card{background:var(--surface);border:1px solid var(--line);border-radius:6px;box-shadow:var(--shadow);padding:14px 16px}
 .chart-card h3{font-size:13px;margin-bottom:10px}
 .chart-card h3 .th{font-family:var(--thai);font-weight:400;color:var(--ink-2);font-size:11.5px}
+.chart-card .clickhint{float:right;font-family:var(--thai);font-weight:400;color:var(--ink-3);font-size:11px}
 .chart-wrap{position:relative;height:280px}
 .chart-wrap.tall{height:360px}
 .empty-note{color:var(--ink-3);font-size:12.5px;padding:30px 0;text-align:center}
+.toolbar{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:12px}
+.toolbar input[type=search]{max-width:280px}
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:5px}
+table.rdt{width:100%;border-collapse:collapse;font-size:12.5px;min-width:1100px}
+table.rdt th{position:sticky;top:0;background:var(--surface-2);text-align:left;font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);padding:7px 9px;border-bottom:1px solid var(--line);white-space:nowrap;cursor:pointer}
+table.rdt th:hover{color:var(--accent)}
+table.rdt td{padding:6px 9px;border-bottom:1px solid var(--line);vertical-align:middle;white-space:nowrap}
+table.rdt tr:hover td{background:var(--surface-2)}
+.pager{display:flex;align-items:center;gap:10px;margin-top:12px;justify-content:center}
+.muted{color:var(--ink-3);font-size:12px}
+/* modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(20,19,15,.55);display:flex;align-items:flex-start;justify-content:center;padding:24px 16px;overflow-y:auto;z-index:100}
+.modal{background:var(--surface);border-radius:8px;box-shadow:0 20px 60px -20px rgba(0,0,0,.5);width:100%;max-width:760px;margin:auto}
+.modal-hd{display:flex;align-items:center;gap:10px;padding:16px 20px;border-bottom:1px solid var(--line)}
+.modal-hd h3{font-size:15.5px;flex:1}
+.modal-close{background:none;border:0;font-size:22px;line-height:1;cursor:pointer;color:var(--ink-3);padding:4px 8px}
+.modal-close:hover{color:var(--ink)}
+.modal-bd{padding:18px 20px;max-height:70vh;overflow-y:auto}
+.modal-ft{padding:14px 20px;border-top:1px solid var(--line);display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
+.mrow{display:grid;grid-template-columns:150px 1fr;gap:6px 12px;padding:5px 0;border-bottom:1px dashed var(--line);font-size:13px}
+.mrow .mk{font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3)}
+.editgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px 14px}
+@media (max-width:520px){.editgrid{grid-template-columns:1fr}}
+.editgrid label.f{margin:0}
+.histitem{padding:8px 0;border-bottom:1px solid var(--line);font-size:12.5px}
+.histitem:last-child{border-bottom:0}
+.histitem .who{font-family:var(--mono);font-weight:600}
+.histitem .when{color:var(--ink-3);font-family:var(--mono);font-size:11.5px}
+.histfield{margin-top:3px;font-size:12.5px}
+.histfield b{font-family:var(--mono);color:var(--accent)}
+.histfield .from{color:var(--fail);text-decoration:line-through;opacity:.75}
+.histfield .to{color:var(--pass);font-weight:600}
+.noperm{font-family:var(--thai);color:var(--ink-3);font-size:13px;padding:10px 0}
+#printHeader{display:none}
+@media print{
+  .top,.tabNav,#filtersCard,.toolbar,.pager,#rawDataSection,.modal-overlay,.chart-card .clickhint{display:none!important}
+  #printHeader{display:block!important;margin-bottom:14px}
+  #printHeader h1{font-size:18px}
+  #printHeader p{font-family:var(--mono);font-size:11.5px;color:#444;margin-top:4px}
+  .page{max-width:100%;padding:0}
+  .charts{grid-template-columns:1fr 1fr;gap:10px}
+  .chart-card{box-shadow:none;border:1px solid #ccc;break-inside:avoid}
+  .kpis{margin:10px 0}
+  body{background:#fff}
+  @page{size:A4;margin:14mm}
+}
 </style>
 </head>
 <body>
@@ -44,12 +94,23 @@ body{margin:0}[hidden]{display:none!important}
     <a class="btn sm" id="lnkAdmin" href="admin.html" hidden>Admin</a>
     <span class="whoami" id="whoami"></span>
     <button class="btn sm" id="btnLogout">Logout <span class="th">(ออกจากระบบ)</span></button>
+    <button class="btn sm" id="btnPrint">🖨 พิมพ์สรุป (PDF)</button>
     <button class="btn" id="btnRefresh">Refresh <span class="th">(รีเฟรช)</span></button>
   </div>
 </div></div>
 
 <div class="page">
-  <section class="card">
+  <div id="printHeader">
+    <h1>ETT In-Process Quality — Dashboard Summary</h1>
+    <p id="printMeta"></p>
+  </div>
+
+  <div class="tabNav" id="tabNav">
+    <button type="button" class="tabBtn active" data-tab="chart">แดชบอร์ด (Charts)</button>
+    <button type="button" class="tabBtn" data-tab="raw">ข้อมูลดิบ (Raw Data)</button>
+  </div>
+
+  <section class="card" id="filtersCard">
     <div class="card-hd"><h2>Filters <span class="th">(ตัวกรอง)</span></h2><span class="rid" id="rowCount"></span></div>
     <div class="card-bd">
       <div class="filters">
@@ -57,6 +118,8 @@ body{margin:0}[hidden]{display:none!important}
         <label class="f"><span class="lb">To (ถึง)</span><input type="date" id="fTo"></label>
         <label class="f"><span class="lb">Stage (แผนก)</span><select id="fStage"><option value="">ALL</option></select></label>
         <label class="f"><span class="lb">Article (อาร์ติเคิล)</span><select id="fArticle"><option value="">ALL</option></select></label>
+        <label class="f"><span class="lb">Customer (ลูกค้า)</span><select id="fCustomer"><option value="">ALL</option></select></label>
+        <label class="f"><span class="lb">Tannery (โรงฟอก)</span><select id="fTannery"><option value="">ALL</option></select></label>
         <label class="f"><span class="lb">Inspector / recorded by</span><select id="fInspector"><option value="">ALL</option></select></label>
         <label class="f"><span class="lb">Result (ผลตรวจ)</span>
           <select id="fResult"><option value="">ALL</option><option value="pass">PASS</option><option value="near">NEAR</option><option value="fail">FAIL</option></select>
@@ -65,36 +128,72 @@ body{margin:0}[hidden]{display:none!important}
     </div>
   </section>
 
-  <div class="kpis">
-    <div class="kpi"><div class="k">Total records (ทั้งหมด)</div><div class="v" id="kTotal">0</div></div>
-    <div class="kpi"><div class="k">Pass rate (ผ่าน)</div><div class="v pass" id="kPass">0%</div></div>
-    <div class="kpi"><div class="k">Near rate (ใกล้เกณฑ์)</div><div class="v near" id="kNear">0%</div></div>
-    <div class="kpi"><div class="k">Fail rate (ไม่ผ่าน)</div><div class="v fail" id="kFail">0%</div></div>
-    <div class="kpi"><div class="k">Top defect (ตำหนิสูงสุด)</div><div class="v" id="kDefect" style="font-size:14px">—</div></div>
+  <div id="chartTab">
+    <div class="kpis">
+      <div class="kpi"><div class="k">Total records (ทั้งหมด)</div><div class="v" id="kTotal">0</div></div>
+      <div class="kpi"><div class="k">Pass rate (ผ่าน)</div><div class="v pass" id="kPass">0%</div></div>
+      <div class="kpi"><div class="k">Near rate (ใกล้เกณฑ์)</div><div class="v near" id="kNear">0%</div></div>
+      <div class="kpi"><div class="k">Fail rate (ไม่ผ่าน)</div><div class="v fail" id="kFail">0%</div></div>
+      <div class="kpi"><div class="k">Top defect (ตำหนิสูงสุด)</div><div class="v" id="kDefect" style="font-size:14px">—</div></div>
+    </div>
+
+    <div class="charts">
+      <div class="chart-card"><h3>Records over time <span class="clickhint th">คลิกแท่งเพื่อดูรายการ</span><br><span class="th">แนวโน้มรายวัน แยกตามผล</span></h3>
+        <div class="chart-wrap"><canvas id="chartTime"></canvas></div></div>
+      <div class="chart-card"><h3>Pass / Near / Fail by stage <span class="clickhint th">คลิกแท่งเพื่อดูรายการ</span><br><span class="th">ผลตรวจแยกตามแผนก</span></h3>
+        <div class="chart-wrap"><canvas id="chartStage"></canvas></div></div>
+      <div class="chart-card"><h3>Top defect reasons <span class="clickhint th">คลิกแท่งเพื่อดูรายการ</span><br><span class="th">ตำหนิที่พบบ่อยที่สุด</span></h3>
+        <div class="chart-wrap"><canvas id="chartDefect"></canvas></div></div>
+      <div class="chart-card"><h3>Checked by inspector <span class="clickhint th">คลิกแท่งเพื่อดูรายการ</span><br><span class="th">จำนวนที่ตรวจ แยกตามผู้ตรวจ</span></h3>
+        <div class="chart-wrap"><canvas id="chartInspector"></canvas></div></div>
+      <div class="chart-card"><h3>By customer <span class="clickhint th">คลิกแท่งเพื่อดูรายการ</span><br><span class="th">ผลตรวจแยกตามลูกค้า</span></h3>
+        <div class="chart-wrap"><canvas id="chartCustomer"></canvas></div></div>
+      <div class="chart-card"><h3>By tannery <span class="clickhint th">คลิกแท่งเพื่อดูรายการ</span><br><span class="th">ผลตรวจแยกตามโรงฟอก</span></h3>
+        <div class="chart-wrap"><canvas id="chartTannery"></canvas></div></div>
+      <div class="chart-card" style="grid-column:1/-1"><h3>Article performance <span class="clickhint th">คลิกแท่งเพื่อดูรายการ</span><br><span class="th">ผลตรวจแยกตามอาร์ติเคิล — 15 อันดับแรกตามจำนวน</span></h3>
+        <div class="chart-wrap tall"><canvas id="chartArticle"></canvas></div></div>
+    </div>
   </div>
 
-  <div class="charts">
-    <div class="chart-card"><h3>Records over time <span class="th">(แนวโน้มรายวัน แยกตามผล)</span></h3>
-      <div class="chart-wrap"><canvas id="chartTime"></canvas></div></div>
-    <div class="chart-card"><h3>Pass / Near / Fail by stage <span class="th">(ผลตรวจแยกตามแผนก)</span></h3>
-      <div class="chart-wrap"><canvas id="chartStage"></canvas></div></div>
-    <div class="chart-card"><h3>Top defect reasons <span class="th">(ตำหนิที่พบบ่อยที่สุด)</span></h3>
-      <div class="chart-wrap"><canvas id="chartDefect"></canvas></div></div>
-    <div class="chart-card"><h3>Checked by inspector <span class="th">(จำนวนที่ตรวจ แยกตามผู้ตรวจ)</span></h3>
-      <div class="chart-wrap"><canvas id="chartInspector"></canvas></div></div>
-    <div class="chart-card" style="grid-column:1/-1"><h3>Article performance <span class="th">(ผลตรวจแยกตามอาร์ติเคิล — 15 อันดับแรกตามจำนวน)</span></h3>
-      <div class="chart-wrap tall"><canvas id="chartArticle"></canvas></div></div>
+  <div id="rawDataSection" hidden>
+    <section class="card">
+      <div class="card-hd"><h2>Raw Data <span class="th">(ข้อมูลดิบทั้งหมด)</span></h2><span class="rid" id="rawCount"></span></div>
+      <div class="card-bd">
+        <div class="toolbar">
+          <input type="search" id="rdSearch" placeholder="ค้นหา… lot / article / colour / note">
+          <span class="muted">คลิกแถวเพื่อดูรายละเอียด แก้ไข หรือพิมพ์ใบ QC</span>
+        </div>
+        <div class="tablewrap">
+          <table class="rdt">
+            <thead><tr>
+              <th data-k="ts">วันที่/เวลา</th><th data-k="lotNo">Lot</th><th data-k="stage">Stage</th>
+              <th data-k="article">Article</th><th data-k="colour">Colour</th><th data-k="customer">Customer</th>
+              <th data-k="tannery">Tannery</th><th data-k="inspector">Inspector</th><th data-k="result">Result</th>
+              <th data-k="decision">Decision</th><th data-k="mainDefectName">Defect</th><th></th>
+            </tr></thead>
+            <tbody id="rdBody"></tbody>
+          </table>
+        </div>
+        <div class="pager" id="rdPager"></div>
+      </div>
+    </section>
   </div>
 </div>
+
+<div id="modalRoot"></div>
 <div id="toast"></div>
 <script src="api.js"></script>
 <script>
+"use strict";
 const SESSION = requireLogin();
-let ALL=[], CHARTS={};
+let ALL=[], CHARTS={}, ACTIVE_TAB="chart";
+let RD_SORT={k:"ts",dir:-1}, RD_SEARCH="", RD_PAGE=0;
+const RD_PAGE_SIZE=50;
 const PALETTE={pass:"#2C7355",near:"#9A6B0F",fail:"#AB3B27",accent:"#2C5E7E",accent2:"#4A87AB",tan:"#8E6234",grid:"rgba(140,135,121,.18)",ink2:"#5B584F"};
 
 function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
 function toast(m,err){const t=document.createElement("div");t.className="toast"+(err?" err":"");t.textContent=m;document.getElementById("toast").append(t);setTimeout(()=>t.remove(),3200)}
+function fmtDt(iso){if(!iso)return"—";const d=new Date(iso);if(isNaN(d))return String(iso).slice(0,16);return d.toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"})+" "+d.toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"})}
 
 function initTopbar(){
   const who=document.getElementById("whoami");
@@ -103,6 +202,29 @@ function initTopbar(){
   document.getElementById("lnkSetup").hidden=!hasRole(ROLES.ADMIN);
   document.getElementById("btnLogout").onclick=async()=>{try{await API.logout()}catch(e){}clearSession();location.href="login.html"};
   document.getElementById("btnRefresh").onclick=load;
+  document.getElementById("btnPrint").onclick=()=>{
+    if(ACTIVE_TAB!=="chart"){switchTab("chart")}
+    const f=describeFilters();
+    document.getElementById("printMeta").textContent="สร้างเมื่อ "+fmtDt(new Date().toISOString())+" โดย "+(SESSION.fullName||SESSION.username)+(f?" · ตัวกรอง: "+f:" · ไม่มีตัวกรอง (ข้อมูลทั้งหมด)");
+    setTimeout(()=>window.print(),80);
+  };
+  document.querySelectorAll(".tabBtn").forEach(b=>b.onclick=()=>switchTab(b.dataset.tab));
+}
+function switchTab(tab){
+  ACTIVE_TAB=tab;
+  document.querySelectorAll(".tabBtn").forEach(b=>b.classList.toggle("active",b.dataset.tab===tab));
+  document.getElementById("chartTab").hidden=tab!=="chart";
+  document.getElementById("rawDataSection").hidden=tab!=="raw";
+  if(tab==="raw") renderRawData();
+}
+function describeFilters(){
+  const parts=[];
+  const from=document.getElementById("fFrom").value, to=document.getElementById("fTo").value;
+  if(from) parts.push("จาก "+from); if(to) parts.push("ถึง "+to);
+  ["fStage","fArticle","fCustomer","fTannery","fInspector","fResult"].forEach(id=>{
+    const v=document.getElementById(id).value; if(v) parts.push(v);
+  });
+  return parts.join(" · ");
 }
 
 function uniq(arr){return [...new Set(arr.filter(Boolean))].sort()}
@@ -110,10 +232,12 @@ function uniq(arr){return [...new Set(arr.filter(Boolean))].sort()}
 function populateFilters(){
   const stages=uniq(ALL.map(r=>r.stage));
   const articles=uniq(ALL.map(r=>r.article));
+  const customers=uniq(ALL.map(r=>r.customer));
+  const tanneries=uniq(ALL.map(r=>r.tannery));
   const inspectors=uniq(ALL.map(r=>r.recordedBy||r.inspector));
   const fill=(id,list)=>{const sel=document.getElementById(id);const cur=sel.value;
     sel.innerHTML='<option value="">ALL</option>'+list.map(x=>'<option value="'+esc(x)+'"'+(x===cur?" selected":"")+'>'+esc(x)+'</option>').join("")};
-  fill("fStage",stages);fill("fArticle",articles);fill("fInspector",inspectors);
+  fill("fStage",stages);fill("fArticle",articles);fill("fCustomer",customers);fill("fTannery",tanneries);fill("fInspector",inspectors);
 }
 
 function applyFilters(){
@@ -121,6 +245,8 @@ function applyFilters(){
   const to=document.getElementById("fTo").value;
   const stage=document.getElementById("fStage").value;
   const article=document.getElementById("fArticle").value;
+  const customer=document.getElementById("fCustomer").value;
+  const tannery=document.getElementById("fTannery").value;
   const inspector=document.getElementById("fInspector").value;
   const result=document.getElementById("fResult").value;
   return ALL.filter(r=>{
@@ -128,6 +254,8 @@ function applyFilters(){
     if(to && (r.ts||"").slice(0,10)>to)return false;
     if(stage && r.stage!==stage)return false;
     if(article && r.article!==article)return false;
+    if(customer && r.customer!==customer)return false;
+    if(tannery && r.tannery!==tannery)return false;
     if(inspector && r.recordedBy!==inspector && r.inspector!==inspector)return false;
     if(result && r.result!==result)return false;
     return true;
@@ -154,9 +282,9 @@ function render(){
   document.getElementById("kDefect").textContent=topDefectEntry?topDefectEntry[0]+" ("+topDefectEntry[1]+")":"—";
 
   destroyCharts();
-  if(!total){["chartTime","chartStage","chartDefect","chartInspector","chartArticle"].forEach(id=>{
+  if(!total){["chartTime","chartStage","chartDefect","chartInspector","chartCustomer","chartTannery","chartArticle"].forEach(id=>{
     const ctx=document.getElementById(id).getContext("2d");ctx.clearRect(0,0,9999,9999);
-  });return}
+  });if(ACTIVE_TAB==="raw")renderRawData();return}
 
   // 1. Records over time, stacked by result
   const byDay={};
@@ -168,7 +296,10 @@ function render(){
       {label:"NEAR",data:days.map(d=>byDay[d].near||0),backgroundColor:PALETTE.near,stack:"s"},
       {label:"FAIL",data:days.map(d=>byDay[d].fail||0),backgroundColor:PALETTE.fail,stack:"s"}
     ]},
-    options:chartOpts({stacked:true})
+    options:chartOpts({stacked:true,onClick:idx=>{
+      const d=days[idx];
+      openRecordsModal("รายการวันที่ "+d, rows.filter(r=>(r.ts||"").slice(0,10)===d));
+    }})
   });
 
   // 2. Pass/Near/Fail by stage
@@ -181,14 +312,20 @@ function render(){
       {label:"NEAR",data:byStage.map(o=>o.near),backgroundColor:PALETTE.near,stack:"s"},
       {label:"FAIL",data:byStage.map(o=>o.fail),backgroundColor:PALETTE.fail,stack:"s"}
     ]},
-    options:chartOpts({stacked:true})
+    options:chartOpts({stacked:true,onClick:idx=>{
+      const s=byStage[idx].s;
+      openRecordsModal("รายการแผนก "+s, rows.filter(r=>r.stage===s));
+    }})
   });
 
   // 3. Top defect reasons (horizontal bar, top 10)
   const topDefects=Object.entries(defectCount).sort((a,b)=>b[1]-a[1]).slice(0,10);
   CHARTS.defect=new Chart(document.getElementById("chartDefect"),{type:"bar",
     data:{labels:topDefects.map(x=>x[0]),datasets:[{label:"ครั้ง",data:topDefects.map(x=>x[1]),backgroundColor:PALETTE.accent}]},
-    options:chartOpts({indexAxis:"y"})
+    options:chartOpts({indexAxis:"y",onClick:idx=>{
+      const name=topDefects[idx][0];
+      openRecordsModal("รายการตำหนิ "+name, rows.filter(r=>(r.mainDefectName||(r.rejectDetail&&r.rejectDetail[0]&&r.rejectDetail[0].name))===name));
+    }})
   });
 
   // 4. Checked by inspector
@@ -197,10 +334,45 @@ function render(){
   const inspEntries=Object.entries(byInsp).sort((a,b)=>b[1]-a[1]).slice(0,12);
   CHARTS.inspector=new Chart(document.getElementById("chartInspector"),{type:"bar",
     data:{labels:inspEntries.map(x=>x[0]),datasets:[{label:"จำนวนที่บันทึก",data:inspEntries.map(x=>x[1]),backgroundColor:PALETTE.tan}]},
-    options:chartOpts({})
+    options:chartOpts({onClick:idx=>{
+      const n=inspEntries[idx][0];
+      openRecordsModal("รายการของ "+n, rows.filter(r=>(r.recordedBy||r.inspector||"—")===n));
+    }})
   });
 
-  // 5. Article performance, top 15 by volume
+  // 5. By customer
+  const byCust={};
+  rows.forEach(r=>{const c=r.customer||"—";byCust[c]=byCust[c]||{pass:0,near:0,fail:0,total:0};byCust[c][r.result||"pass"]=(byCust[c][r.result||"pass"]||0)+1;byCust[c].total++});
+  const topCust=Object.entries(byCust).sort((a,b)=>b[1].total-a[1].total).slice(0,15);
+  CHARTS.customer=new Chart(document.getElementById("chartCustomer"),{type:"bar",
+    data:{labels:topCust.map(x=>x[0]),datasets:[
+      {label:"PASS",data:topCust.map(x=>x[1].pass),backgroundColor:PALETTE.pass,stack:"s"},
+      {label:"NEAR",data:topCust.map(x=>x[1].near),backgroundColor:PALETTE.near,stack:"s"},
+      {label:"FAIL",data:topCust.map(x=>x[1].fail),backgroundColor:PALETTE.fail,stack:"s"}
+    ]},
+    options:chartOpts({stacked:true,onClick:idx=>{
+      const c=topCust[idx][0];
+      openRecordsModal("รายการลูกค้า "+c, rows.filter(r=>(r.customer||"—")===c));
+    }})
+  });
+
+  // 6. By tannery
+  const byTan={};
+  rows.forEach(r=>{const t=r.tannery||"—";byTan[t]=byTan[t]||{pass:0,near:0,fail:0,total:0};byTan[t][r.result||"pass"]=(byTan[t][r.result||"pass"]||0)+1;byTan[t].total++});
+  const topTan=Object.entries(byTan).sort((a,b)=>b[1].total-a[1].total).slice(0,15);
+  CHARTS.tannery=new Chart(document.getElementById("chartTannery"),{type:"bar",
+    data:{labels:topTan.map(x=>x[0]),datasets:[
+      {label:"PASS",data:topTan.map(x=>x[1].pass),backgroundColor:PALETTE.pass,stack:"s"},
+      {label:"NEAR",data:topTan.map(x=>x[1].near),backgroundColor:PALETTE.near,stack:"s"},
+      {label:"FAIL",data:topTan.map(x=>x[1].fail),backgroundColor:PALETTE.fail,stack:"s"}
+    ]},
+    options:chartOpts({stacked:true,onClick:idx=>{
+      const t=topTan[idx][0];
+      openRecordsModal("รายการโรงฟอก "+t, rows.filter(r=>(r.tannery||"—")===t));
+    }})
+  });
+
+  // 7. Article performance, top 15 by volume
   const byArt={};
   rows.forEach(r=>{const a=r.article||"—";byArt[a]=byArt[a]||{pass:0,near:0,fail:0,total:0};byArt[a][r.result||"pass"]=(byArt[a][r.result||"pass"]||0)+1;byArt[a].total++});
   const topArt=Object.entries(byArt).sort((a,b)=>b[1].total-a[1].total).slice(0,15);
@@ -210,14 +382,24 @@ function render(){
       {label:"NEAR",data:topArt.map(x=>x[1].near),backgroundColor:PALETTE.near,stack:"s"},
       {label:"FAIL",data:topArt.map(x=>x[1].fail),backgroundColor:PALETTE.fail,stack:"s"}
     ]},
-    options:chartOpts({stacked:true})
+    options:chartOpts({stacked:true,onClick:idx=>{
+      const a=topArt[idx][0];
+      openRecordsModal("รายการอาร์ติเคิล "+a, rows.filter(r=>(r.article||"—")===a));
+    }})
   });
+
+  if(ACTIVE_TAB==="raw") renderRawData();
 }
 
 function chartOpts(o){
   return {
     responsive:true,maintainAspectRatio:false,
     indexAxis:o.indexAxis||"x",
+    onClick:o.onClick?(evt,elements,chart)=>{
+      if(!elements.length)return;
+      o.onClick(elements[0].index);
+    }:undefined,
+    onHover:o.onClick?(evt,elements)=>{evt.native.target.style.cursor=elements.length?"pointer":"default"}:undefined,
     scales:{
       x:{stacked:!!o.stacked,grid:{color:PALETTE.grid},ticks:{color:PALETTE.ink2,font:{size:10.5}}},
       y:{stacked:!!o.stacked,grid:{color:PALETTE.grid},ticks:{color:PALETTE.ink2,font:{size:10.5}},beginAtZero:true}
@@ -226,15 +408,169 @@ function chartOpts(o){
   };
 }
 
+/* ============================ RAW DATA TABLE ============================ */
+function renderRawData(){
+  let rows=applyFilters();
+  const q=RD_SEARCH.trim().toLowerCase();
+  if(q) rows=rows.filter(r=>[r.lotNo,r.article,r.colour,r.colourDesc,r.customer,r.tannery,r.note].some(v=>String(v||"").toLowerCase().indexOf(q)!==-1));
+  rows=rows.slice().sort((a,b)=>{
+    const k=RD_SORT.k;let av=a[k],bv=b[k];
+    if(k==="ts"){av=new Date(av||0).getTime();bv=new Date(bv||0).getTime()}
+    else {av=String(av==null?"":av).toLowerCase();bv=String(bv==null?"":bv).toLowerCase()}
+    if(av<bv)return -1*RD_SORT.dir; if(av>bv)return 1*RD_SORT.dir; return 0;
+  });
+  document.getElementById("rawCount").textContent=rows.length+" รายการ";
+  const totalPages=Math.max(1,Math.ceil(rows.length/RD_PAGE_SIZE));
+  if(RD_PAGE>=totalPages)RD_PAGE=totalPages-1; if(RD_PAGE<0)RD_PAGE=0;
+  const pageRows=rows.slice(RD_PAGE*RD_PAGE_SIZE,RD_PAGE*RD_PAGE_SIZE+RD_PAGE_SIZE);
+  const body=document.getElementById("rdBody");
+  body.innerHTML=pageRows.map(r=>
+    '<tr data-id="'+esc(r.id)+'">'+
+    '<td>'+esc(fmtDt(r.ts))+'</td><td>'+esc(r.lotNo)+'</td><td>'+esc(r.stage)+'</td>'+
+    '<td>'+esc(r.article)+'</td><td>'+esc(r.colour)+'</td><td>'+esc(r.customer)+'</td>'+
+    '<td>'+esc(r.tannery)+'</td><td>'+esc(r.recordedBy||r.inspector)+'</td>'+
+    '<td><span class="badge '+esc(r.result)+'">'+esc((r.result||"").toUpperCase())+'</span></td>'+
+    '<td>'+esc(r.decision)+'</td><td>'+esc(r.mainDefectName)+'</td>'+
+    '<td><button type="button" class="btn sm viewBtn">ดู</button></td></tr>'
+  ).join("")||'<tr><td colspan="12" class="empty-note">ไม่มีข้อมูล</td></tr>';
+  body.querySelectorAll(".viewBtn").forEach(btn=>btn.onclick=()=>{
+    const id=btn.closest("tr").dataset.id;
+    const rec=ALL.find(r=>String(r.id)===String(id));
+    if(rec) openRecordModal(rec);
+  });
+  document.getElementById("rdPager").innerHTML=
+    '<button type="button" class="btn sm" id="rdPrev" '+(RD_PAGE<=0?"disabled":"")+'>← ก่อนหน้า</button>'+
+    '<span class="muted">หน้า '+(RD_PAGE+1)+' / '+totalPages+'</span>'+
+    '<button type="button" class="btn sm" id="rdNext" '+(RD_PAGE>=totalPages-1?"disabled":"")+'>ถัดไป →</button>';
+  document.getElementById("rdPrev").onclick=()=>{RD_PAGE--;renderRawData()};
+  document.getElementById("rdNext").onclick=()=>{RD_PAGE++;renderRawData()};
+}
+document.getElementById("rdSearch").addEventListener("input",e=>{RD_SEARCH=e.target.value;RD_PAGE=0;renderRawData()});
+document.querySelectorAll("table.rdt th[data-k]").forEach(th=>th.addEventListener("click",()=>{
+  const k=th.dataset.k;
+  if(RD_SORT.k===k)RD_SORT.dir*=-1; else RD_SORT={k,dir:1};
+  renderRawData();
+}));
+
+/* ============================ MODALS ============================ */
+function closeModal(){document.getElementById("modalRoot").innerHTML=""}
+function openRecordsModal(title,records){
+  const root=document.getElementById("modalRoot");
+  root.innerHTML=
+    '<div class="modal-overlay" id="ovl"><div class="modal">'+
+    '<div class="modal-hd"><h3>'+esc(title)+' ('+records.length+')</h3><button type="button" class="modal-close" id="mClose">&times;</button></div>'+
+    '<div class="modal-bd"><div class="tablewrap"><table class="rdt" style="min-width:0"><thead><tr>'+
+    '<th>วันที่</th><th>Lot</th><th>Article</th><th>Colour</th><th>Result</th><th>Decision</th><th>Defect</th><th></th>'+
+    '</tr></thead><tbody>'+
+    records.slice(0,300).map(r=>
+      '<tr data-id="'+esc(r.id)+'"><td>'+esc(fmtDt(r.ts))+'</td><td>'+esc(r.lotNo)+'</td><td>'+esc(r.article)+'</td>'+
+      '<td>'+esc(r.colour)+'</td><td><span class="badge '+esc(r.result)+'">'+esc((r.result||"").toUpperCase())+'</span></td>'+
+      '<td>'+esc(r.decision)+'</td><td>'+esc(r.mainDefectName)+'</td>'+
+      '<td><button type="button" class="btn sm viewBtn2">ดู</button></td></tr>'
+    ).join("")+
+    '</tbody></table></div>'+(records.length>300?'<p class="muted" style="margin-top:8px">แสดง 300 จาก '+records.length+' รายการแรก</p>':'')+'</div>'+
+    '</div></div>';
+  document.getElementById("mClose").onclick=closeModal;
+  document.getElementById("ovl").addEventListener("click",e=>{if(e.target.id==="ovl")closeModal()});
+  root.querySelectorAll(".viewBtn2").forEach(btn=>btn.onclick=()=>{
+    const id=btn.closest("tr").dataset.id;
+    const rec=ALL.find(r=>String(r.id)===String(id));
+    if(rec) openRecordModal(rec);
+  });
+}
+
+const EDITABLE_FIELDS=["article","substance","colour","colourDesc","customer","tannery","inspector","result","decision","mainDefect","mainDefectName","note"];
+const FIELD_TO_API={article:"Article",substance:"Substance",colour:"Colour",colourDesc:"ColourDesc",customer:"Customer",tannery:"Tannery",inspector:"Inspector",result:"Result",decision:"Decision",mainDefect:"MainDefect",mainDefectName:"MainDefectName",note:"Note"};
+
+function canEdit(rec){ return hasRole(ROLES.ADMIN) || SESSION.username===rec.recordedBy; }
+
+function openRecordModal(rec){
+  const root=document.getElementById("modalRoot");
+  const editable=canEdit(rec);
+  root.innerHTML=
+    '<div class="modal-overlay" id="ovl"><div class="modal">'+
+    '<div class="modal-hd"><h3>Lot '+esc(rec.lotNo)+' · '+esc(rec.stage)+'</h3><button type="button" class="modal-close" id="mClose">&times;</button></div>'+
+    '<div class="modal-bd">'+
+    (editable?'<form id="editForm" class="editgrid"></form>':'<div id="viewOnly"></div><p class="noperm">แก้ไขได้เฉพาะ Admin หรือผู้บันทึกรายการนี้ ('+esc(rec.recordedBy)+')</p>')+
+    '<div class="sec" style="margin-top:18px"><span class="th">ประวัติการแก้ไข (Audit log)</span></div>'+
+    '<div id="histBox"><p class="muted">กำลังโหลด…</p></div>'+
+    '</div>'+
+    '<div class="modal-ft">'+
+      '<a class="btn sm" href="lot-report.html?id='+encodeURIComponent(rec.id)+'" target="_blank">🖨 พิมพ์ใบ QC (A4)</a>'+
+      (editable?'<button type="button" class="btn primary sm" id="btnSaveEdit">บันทึกการแก้ไข</button>':'')+
+    '</div>'+
+    '</div></div>';
+  document.getElementById("mClose").onclick=closeModal;
+  document.getElementById("ovl").addEventListener("click",e=>{if(e.target.id==="ovl")closeModal()});
+
+  const fieldMeta={
+    article:["Article","อาร์ติเคิล","text"],substance:["Substance","ความหนา","text"],
+    colour:["Colour","รหัสสี","text"],colourDesc:["Colour desc","คำอธิบายสี","text"],
+    customer:["Customer","ลูกค้า","text"],tannery:["Tannery","โรงฟอก","text"],
+    inspector:["Inspector","ผู้ตรวจ","text"],
+    result:["Result","ผลตรวจ","select",[["pass","PASS"],["near","NEAR"],["fail","FAIL"]]],
+    decision:["Decision","ผลตัดสิน","select",[["ACCEPTED","ACCEPTED"],["ACCEPTED WO","ACCEPTED WO"],["REJECTED","REJECTED"]]],
+    mainDefect:["Main defect code","รหัสตำหนิหลัก","text"],
+    mainDefectName:["Main defect name","ชื่อตำหนิหลัก","text"],
+    note:["Note","หมายเหตุ","textarea"]
+  };
+  if(editable){
+    const form=document.getElementById("editForm");
+    form.innerHTML=EDITABLE_FIELDS.map(f=>{
+      const [en,th,type,opts]=fieldMeta[f];
+      const val=rec[f]==null?"":rec[f];
+      let input;
+      if(type==="select") input='<select data-f="'+f+'">'+opts.map(([v,l])=>'<option value="'+esc(v)+'"'+(String(val)===v?" selected":"")+'>'+esc(l)+'</option>').join("")+'</select>';
+      else if(type==="textarea") input='<textarea data-f="'+f+'" style="grid-column:1/-1">'+esc(val)+'</textarea>';
+      else input='<input type="text" data-f="'+f+'" value="'+esc(val)+'">';
+      return '<label class="f"'+(type==="textarea"?' style="grid-column:1/-1"':'')+'><span class="lb">'+en+' <span class="th">('+th+')</span></span>'+input+'</label>';
+    }).join("");
+    document.getElementById("btnSaveEdit").onclick=async()=>{
+      const changes={};
+      form.querySelectorAll("[data-f]").forEach(el=>{
+        const f=el.dataset.f, apiKey=FIELD_TO_API[f];
+        const newVal=el.value;
+        if(String(rec[f]==null?"":rec[f])!==String(newVal)) changes[apiKey]=newVal;
+      });
+      if(!Object.keys(changes).length){toast("ไม่มีการเปลี่ยนแปลง");return}
+      const btn=document.getElementById("btnSaveEdit");btn.disabled=true;
+      const r=await API.editRecord(rec.id,changes);
+      btn.disabled=false;
+      if(r.ok){toast("บันทึกการแก้ไขแล้ว");await load();closeModal()}
+      else toast(r.error||"บันทึกไม่สำเร็จ",true);
+    };
+  } else {
+    document.getElementById("viewOnly").innerHTML=EDITABLE_FIELDS.map(f=>{
+      const [en]=fieldMeta[f];
+      return '<div class="mrow"><span class="mk">'+en+'</span><span>'+esc(rec[f]||"—")+'</span></div>';
+    }).join("");
+  }
+  loadHistory(rec.id);
+}
+
+async function loadHistory(recordId){
+  const box=document.getElementById("histBox");
+  const r=await API.getAuditLog(recordId);
+  if(!r.ok){box.innerHTML='<p class="muted">โหลดประวัติไม่สำเร็จ</p>';return}
+  if(!r.history.length){box.innerHTML='<p class="muted">ยังไม่มีการแก้ไข</p>';return}
+  box.innerHTML=r.history.map(h=>
+    '<div class="histitem"><span class="who">'+esc(h.editedBy)+'</span> <span class="when">'+esc(fmtDt(h.ts))+'</span>'+
+    Object.entries(h.changes||{}).map(([f,c])=>
+      '<div class="histfield"><b>'+esc(f)+'</b>: <span class="from">'+esc(c.old||"(ว่าง)")+'</span> → <span class="to">'+esc(c.new||"(ว่าง)")+'</span></div>'
+    ).join("")+
+    '</div>'
+  ).join("");
+}
+
 async function load(){
-  const r=await API.getRecords({limit:5000});
+  const r=await API.getRecords({limit:20000});
   if(!r.ok){toast(r.error||"โหลดข้อมูลไม่สำเร็จ",true);return}
   ALL=r.records;
   populateFilters();
   render();
 }
 
-["fFrom","fTo","fStage","fArticle","fInspector","fResult"].forEach(id=>{
+["fFrom","fTo","fStage","fArticle","fCustomer","fTannery","fInspector","fResult"].forEach(id=>{
   document.getElementById(id).addEventListener("change",render);
 });
 

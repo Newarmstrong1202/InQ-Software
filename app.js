@@ -307,6 +307,15 @@ function buildLot(){
   lot.oninput=()=>{lot.value=lot.value.toUpperCase();V.LOT=lot.value;saveDraft();pullLot(lot.value)};
   l.append(lot);g1.append(l);
 
+  // Material code (auto-fill article/substance/colour from the MAT lookup table)
+  l=wrapF("Material code","รหัสวัสดุ");l.htmlFor="lot_MATCODE";
+  const mat=el("input");mat.type="text";mat.id="lot_MATCODE";mat.placeholder="E00602706083";mat.style.textTransform="uppercase";
+  mat.oninput=()=>{mat.value=mat.value.toUpperCase()};
+  mat.addEventListener("change",()=>applyMaterialLookup(mat.value));
+  mat.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();applyMaterialLookup(mat.value)}});
+  l.append(mat);l.append(el("div","hint","พิมพ์รหัสวัสดุเต็มแล้วกด Enter — เติมอาร์ติเคิล/ความหนา/สีให้อัตโนมัติ (ถ้ามีในระบบ)"));
+  g1.append(l);
+
   // Article (datalist)
   l=wrapF("Article","รหัสหนัง",true);l.htmlFor="lot_ARTICLE";
   const art=el("input");art.type="text";art.id="lot_ARTICLE";art.placeholder="DRITTON";art.setAttribute("list","dlArticles");
@@ -390,6 +399,32 @@ function fillColours(){
     act.map(c=>'<option value="'+esc(c[0])+'" data-d="'+esc(c[1])+'"'+(c[0]===V.COLOUR?" selected":"")+'>'+esc(c[0])+' — '+esc(c[1])+'</option>').join("")+
     (ina.length?'<optgroup label="NOT ACTIVE (ไม่ใช้งาน)">'+ina.map(c=>'<option value="'+esc(c[0])+'" data-d="'+esc(c[1])+'"'+(c[0]===V.COLOUR?" selected":"")+'>'+esc(c[0])+' — '+esc(c[1])+'</option>').join("")+'</optgroup>':"");
   col.classList.toggle("filled",!!V.COLOUR);
+}
+function matLookup(code){
+  const c=String(code||"").trim().toUpperCase();
+  if(!c) return null;
+  const list=(M&&M.MAT)||[];
+  return list.find(x=>String(x.mc||"").toUpperCase()===c)||null;
+}
+function applyMaterialLookup(code){
+  const hit=matLookup(code);
+  if(!hit){ if(String(code||"").trim()) toast("ไม่พบรหัสวัสดุนี้ในระบบ — กรอกด้วยตนเองได้ตามปกติ",true); return; }
+  V.ARTICLE=hit.a||V.ARTICLE;
+  const ai=$("#lot_ARTICLE"); if(ai) ai.value=V.ARTICLE;
+  applyArticle(true);
+  if(hit.t){
+    V.SUBSTANCE=hit.t;fillSubstance();
+    const su=$("#lot_SUBSTANCE");if(su)su.value=V.SUBSTANCE;
+    applyArticle(false);
+  }
+  if(hit.cc){
+    V.COLOUR=String(hit.cc);fillColours();
+    const co=$("#lot_COLOUR");
+    if(co){co.value=V.COLOUR;const o=co.options[co.selectedIndex];V.COLOUR_DESC=(o&&o.value===V.COLOUR)?(o.dataset.d||""):(hit.cd||"")}
+  }
+  if(hit.cu&&!V.CUSTOMER){V.CUSTOMER=hit.cu;const cu=$("#lot_CUSTOMER");if(cu)cu.value=hit.cu}
+  renderStrip();saveDraft();
+  toast("เติมข้อมูลจากรหัสวัสดุแล้ว: "+hit.a+(hit.t?" · "+hit.t:"")+(hit.cc?" · สี "+hit.cc:""));
 }
 function applyArticle(fresh){
   const a=V.ARTICLE||"";

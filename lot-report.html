@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>QC Report · ETT In-Process Quality</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="app.css">
+<style>
+body{margin:0}[hidden]{display:none!important}
+.bar{background:var(--surface);border-bottom:1px solid var(--line);padding:12px 20px;display:flex;gap:10px;align-items:center}
+.bar .sp{flex:1}
+.sheet{max-width:820px;margin:24px auto;background:#fff;color:#1a1a1a;padding:34px 40px;box-shadow:var(--shadow);border-radius:4px}
+.rhead{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #1a1a1a;padding-bottom:14px;margin-bottom:18px}
+.rhead h1{font-size:20px;margin:0}
+.rhead p{margin:3px 0 0;font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:#555}
+.rhead .stamp{text-align:right;font-family:var(--mono);font-size:11px;color:#555}
+.rbadge{display:inline-block;font-family:var(--mono);font-weight:700;font-size:15px;letter-spacing:.08em;padding:6px 16px;border-radius:4px;margin-top:6px}
+.rbadge.pass{background:#E1EFE8;color:#1e5a3f}
+.rbadge.near{background:#F6EBD6;color:#7a530b}
+.rbadge.fail{background:#F8E3DE;color:#8a2c1c}
+.rgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px 20px;margin-bottom:20px}
+.rgrid .it .k{font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:#777}
+.rgrid .it .v{font-size:14px;font-weight:600;margin-top:2px}
+.rsec{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#555;border-bottom:1px solid #ccc;padding-bottom:4px;margin:20px 0 10px}
+table.rt{width:100%;border-collapse:collapse;font-size:12.5px;margin-bottom:6px}
+table.rt th{text-align:left;font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#777;padding:5px 8px;border-bottom:1px solid #ccc}
+table.rt td{padding:5px 8px;border-bottom:1px solid #eee}
+table.rt tr.main td{background:#F8E3DE;font-weight:600}
+.note-box{border:1px solid #ccc;border-radius:4px;padding:10px 12px;font-size:13px;min-height:40px;white-space:pre-wrap}
+.sigrow{display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:46px}
+.sigline{border-top:1px solid #333;padding-top:6px;font-family:var(--mono);font-size:11px;color:#555;text-align:center}
+.empty-note{color:#777;font-size:13px;padding:20px 0;text-align:center}
+@media print{
+  .bar{display:none}
+  body{background:#fff}
+  .sheet{box-shadow:none;margin:0;max-width:100%;padding:0}
+  @page{size:A4;margin:16mm}
+}
+</style>
+</head>
+<body>
+<div class="bar"><a class="btn sm" href="dashboard.html">← Dashboard</a><span class="sp"></span><button class="btn primary sm" id="btnPrint">🖨 พิมพ์ / บันทึกเป็น PDF</button></div>
+<div class="sheet" id="sheet"><p class="empty-note">กำลังโหลด…</p></div>
+<script src="api.js"></script>
+<script>
+"use strict";
+requireLogin();
+function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+function fmtDt(iso){if(!iso)return"—";const d=new Date(iso);if(isNaN(d))return String(iso);
+  return d.toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"})+" "+d.toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"})}
+function f1(n){return n==null||isNaN(n)?"—":Number(n).toFixed(1)}
+
+const VALUE_SKIP=new Set(["LOT","ARTICLE","SUBSTANCE","COLOUR","COLOUR_DESC","CUSTOMER","TANNERY","INSPECTOR","DT","QTY_SF","PIECES"]);
+
+function render(rec){
+  const sheet=document.getElementById("sheet");
+  if(!rec){sheet.innerHTML='<p class="empty-note">ไม่พบรายการนี้ (Record not found)</p>';return}
+  const badgeClass=rec.result||"pass";
+  const c=rec.computed||{};
+  const values=rec.values||{};
+  const extraValues=Object.entries(values).filter(([k,v])=>!VALUE_SKIP.has(k)&&v!=null&&v!=="");
+  const rejects=rec.rejectDetail||[];
+
+  sheet.innerHTML=
+    '<div class="rhead"><div><h1>ETT In-Process Quality</h1><p>QC Inspection Report — ใบรายงานผลตรวจสอบคุณภาพ</p></div>'+
+    '<div class="stamp">Generated '+esc(fmtDt(new Date().toISOString()))+'<br>Record ID '+esc(rec.id)+'</div></div>'+
+
+    '<div class="rgrid">'+
+      item("LOT NO.","เลขที่ล็อต",rec.lotNo)+
+      item("STAGE","แผนก",rec.stage)+
+      item("ARTICLE","อาร์ติเคิล",rec.article)+
+      item("SUBSTANCE","ความหนา",rec.substance)+
+      item("COLOUR","สี",(rec.colour||"")+(rec.colourDesc?" — "+rec.colourDesc:""))+
+      item("CUSTOMER","ลูกค้า",rec.customer)+
+      item("TANNERY","โรงฟอก",rec.tannery)+
+      item("INSPECTOR","ผู้ตรวจ",rec.inspector)+
+      item("RECORDED BY","ผู้บันทึก",rec.recordedBy)+
+      item("DATE / TIME","วันที่/เวลา",fmtDt(rec.ts))+
+    '</div>'+
+
+    '<div class="rsec">ผลตรวจสอบ (Result)</div>'+
+    '<div style="display:flex;gap:24px;align-items:center;margin-bottom:8px">'+
+      '<span class="rbadge '+esc(badgeClass)+'">'+esc((rec.result||"").toUpperCase()||"—")+'</span>'+
+      '<span style="font-family:var(--mono);font-size:13px">Decision: <b>'+esc(rec.decision||"—")+'</b></span>'+
+    '</div>'+
+
+    (Object.values(c).some(v=>v!=null)?
+      '<div class="rsec">ค่าที่คำนวณ (Computed)</div>'+
+      '<div class="rgrid" style="grid-template-columns:repeat(4,1fr)">'+
+        item("TRIM","",c.trimSf!=null?f1(c.trimSf)+" SF":"—")+
+        item("COEFFICIENT","",c.coefficient!=null?f1(c.coefficient)+"%":"—")+
+        item("FTT","",c.ftt!=null?f1(c.ftt)+"%":"—")+
+        item("GRADED TOTAL","",c.gradedTotal!=null?f1(c.gradedTotal):"—")+
+      '</div>':"")+
+
+    (extraValues.length?
+      '<div class="rsec">ค่าตรวจวัด (Measured values)</div>'+
+      '<table class="rt"><thead><tr><th>Parameter</th><th>Value</th></tr></thead><tbody>'+
+      extraValues.map(([k,v])=>'<tr><td>'+esc(k)+'</td><td>'+esc(v)+'</td></tr>').join("")+
+      '</tbody></table>':"")+
+
+    '<div class="rsec">ตำหนิที่พบ (Rejects)</div>'+
+    (rejects.length?
+      '<table class="rt"><thead><tr><th>Code</th><th>Name</th><th>ชื่อไทย</th><th>Group</th><th>Phase</th></tr></thead><tbody>'+
+      rejects.map(r=>'<tr'+(r.no===rec.mainDefect?' class="main"':'')+'><td>'+esc(r.code||r.no)+'</td><td>'+esc(r.name)+'</td><td>'+esc(r.nameTh)+'</td><td>'+esc(r.group)+'</td><td>'+esc(r.phase)+'</td></tr>').join("")+
+      '</tbody></table>':
+      '<p class="empty-note" style="padding:8px 0">ไม่มีตำหนิที่บันทึกไว้</p>')+
+
+    '<div class="rsec">หมายเหตุ (Note)</div>'+
+    '<div class="note-box">'+esc(rec.note||"—")+'</div>'+
+
+    '<div class="sigrow">'+
+      '<div class="sigline">ผู้ตรวจสอบ (Inspector)<br>'+esc(rec.inspector||"")+'</div>'+
+      '<div class="sigline">ผู้อนุมัติ QA (QA Approved)</div>'+
+    '</div>';
+}
+function item(en,th,val){
+  return '<div class="it"><div class="k">'+esc(en)+(th?' ('+esc(th)+')':'')+'</div><div class="v">'+esc(val||"—")+'</div></div>';
+}
+
+document.getElementById("btnPrint").onclick=()=>window.print();
+
+(async function init(){
+  const params=new URLSearchParams(location.search);
+  const id=params.get("id");
+  if(!id){document.getElementById("sheet").innerHTML='<p class="empty-note">ไม่ได้ระบุรายการ (missing ?id=)</p>';return}
+  const r=await API.getRecordById(id);
+  if(!r.ok){document.getElementById("sheet").innerHTML='<p class="empty-note">โหลดไม่สำเร็จ: '+esc(r.error||"")+'</p>';return}
+  render(r.record);
+})();
+</script>
+</body>
+</html>

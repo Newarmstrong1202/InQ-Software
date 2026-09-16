@@ -140,6 +140,13 @@ const TYPES={
     cols:[{h:"Code",w:70},{h:"ShortCode",w:90},{h:"NameEN",w:190},{h:"NameTH",w:210},
       {h:"GroupIdx",type:"select-group",w:150},{h:"Phase",type:"select-phase",w:150},{h:"Stages",type:"stages"}],
     rows:[]
+  },
+  MAT:{
+    label:"รหัสวัสดุ (MAT / Material code lookup)",
+    toFlat:r=>({__row:r.__row,MaterialCode:r.mc,Article:r.a,Thickness:r.t,ColourCode:r.cc,ColourDesc:r.cd||"",Customer:r.cu||"",Ref:r.ref||""}),
+    cols:[{h:"MaterialCode",w:170},{h:"Article",w:190},{h:"Thickness",w:90},{h:"ColourCode",w:90},
+      {h:"ColourDesc",w:170},{h:"Customer",w:170},{h:"Ref",w:80}],
+    rows:[]
   }
 };
 Object.keys(TYPES).forEach(k=>TYPES[k].state={search:"",page:0});
@@ -155,6 +162,7 @@ async function loadMaster(){
   TYPES.WB.rows=r.wb.map(TYPES.WB.toFlat);
   TYPES.COL.rows=r.colRows.map(TYPES.COL.toFlat);
   TYPES.RJ.rows=r.rjRows.map(TYPES.RJ.toFlat);
+  TYPES.MAT.rows=(r.mat||[]).map(TYPES.MAT.toFlat);
   return true;
 }
 async function loadInspectors(){

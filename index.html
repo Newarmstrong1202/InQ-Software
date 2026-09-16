@@ -88,7 +88,7 @@ if (requireLogin()) {
       var md = results[0], ins = results[1];
       var M, names;
       if (md.ok) {
-        M = { ART: md.art, WB: md.wb, COL: md.col, RJ: md.rj, GRP: md.grp, FIN: md.fin };
+        M = { ART: md.art, WB: md.wb, COL: md.col, RJ: md.rj, MAT: md.mat || [], GRP: md.grp, FIN: md.fin };
         try { localStorage.setItem(MD_CACHE_KEY, JSON.stringify(M)); } catch (e) {}
       } else {
         try { M = JSON.parse(localStorage.getItem(MD_CACHE_KEY) || "null"); } catch (e) { M = null; }

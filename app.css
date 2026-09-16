@@ -38,14 +38,24 @@
   --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 20px -14px rgba(0,0,0,.8);
 }
 *{box-sizing:border-box}
-body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15.5px;line-height:1.5;-webkit-font-smoothing:antialiased}
+body{
+  background:
+    radial-gradient(1100px 480px at 8% -12%, color-mix(in srgb, var(--accent) 7%, transparent), transparent 60%),
+    radial-gradient(900px 460px at 100% 0%, color-mix(in srgb, var(--tan) 6%, transparent), transparent 55%),
+    var(--bg);
+  background-attachment:fixed;
+  color:var(--ink);font-family:var(--sans);font-size:15.5px;line-height:1.5;-webkit-font-smoothing:antialiased}
 h1,h2,h3{margin:0;font-weight:600;text-wrap:balance}
 button,input,select,textarea{font:inherit;color:inherit}
 :focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.card,.kpi,.chart-card{transition:box-shadow .16s ease, transform .16s ease}
 
-.top{background:var(--surface);border-bottom:1px solid var(--line)}
+.top{background:var(--surface);border-bottom:1px solid var(--line);position:relative}
+.top::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;
+  background:linear-gradient(90deg,var(--accent),var(--tan) 45%,var(--accent-2) 85%);opacity:.75}
 .top-in{max-width:1400px;margin:0 auto;padding:14px 20px;display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap}
 .brand h1{font-size:19px;letter-spacing:-.01em}
+.brand h1 .hl{background:linear-gradient(90deg,var(--accent),var(--tan) 120%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:var(--accent)}
 .brand h1 .th{font-family:var(--thai);font-weight:400;color:var(--ink-2);font-size:17px}
 .brand p{margin:3px 0 0;font-family:var(--mono);font-size:12.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3)}
 .top-right{margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
@@ -66,7 +76,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 
 .wrap{max-width:1400px;margin:0 auto;padding:20px;padding-block:20px 96px;display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:20px;align-items:start}
 @media (max-width:1080px){.wrap{grid-template-columns:1fr}}
-.card{background:var(--surface);border:1px solid var(--line);border-radius:6px;box-shadow:var(--shadow)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:8px;box-shadow:var(--shadow)}
 .card+.card{margin-top:16px}
 .card-hd{display:flex;align-items:baseline;gap:10px;padding:13px 18px;border-bottom:1px solid var(--line);flex-wrap:wrap}
 .card-hd h2{font-size:16.5px}
@@ -127,7 +137,7 @@ td.act input.wide{width:158px}
 td.act .sep{color:var(--ink-3);padding:0 3px}
 .unit{font-family:var(--mono);font-size:13px;color:var(--ink-3)}
 
-.badge{display:inline-block;min-width:60px;text-align:center;font-family:var(--mono);font-size:12.5px;font-weight:600;letter-spacing:.07em;padding:4px 9px;border-radius:3px;background:var(--surface-2);color:var(--ink-3);border:1px solid var(--line)}
+.badge{display:inline-block;min-width:60px;text-align:center;font-family:var(--mono);font-size:12.5px;font-weight:600;letter-spacing:.07em;padding:4px 9px;border-radius:999px;background:var(--surface-2);color:var(--ink-3);border:1px solid var(--line)}
 .badge.pass{background:var(--pass-bg);color:var(--pass);border-color:transparent}
 .badge.near{background:var(--near-bg);color:var(--near);border-color:transparent}
 .badge.fail{background:var(--fail-bg);color:var(--fail);border-color:transparent}
@@ -175,8 +185,8 @@ table.gt tr.rej .bar span{background:var(--fail)}
 .btn{font-family:var(--mono);font-size:14px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;padding:11px 18px;min-height:42px;border-radius:5px;border:1px solid var(--line-2);background:var(--surface);color:var(--ink);cursor:pointer;transition:background .12s,border-color .12s}
 .btn:hover{background:var(--surface-2)}
 .btn .th{font-family:var(--thai);text-transform:none;letter-spacing:0;font-weight:400}
-.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
-.btn.primary:hover{background:var(--accent-2);border-color:var(--accent-2)}
+.btn.primary{background:linear-gradient(135deg,var(--accent),var(--accent-2));border-color:var(--accent);color:var(--on-accent);box-shadow:0 4px 14px -6px color-mix(in srgb, var(--accent) 55%, transparent)}
+.btn.primary:hover{filter:brightness(1.06);border-color:var(--accent-2)}
 .btn.quick{background:var(--pass-bg);border-color:var(--pass);color:var(--pass)}
 .btn.quick:hover{background:var(--pass);color:var(--surface)}
 .btn:disabled{opacity:.5;cursor:not-allowed}
