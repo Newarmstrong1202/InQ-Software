@@ -163,6 +163,35 @@ const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",
 const slug=s=>String(s||"").toUpperCase().replace(/[^A-Z0-9_.\-+:@~]/g,"_").slice(0,60)||"NA";
 function toast(m,err){const t=el("div","toast"+(err?" err":""),m);$("#toast").append(t);setTimeout(()=>t.remove(),3200)}
 
+/* Prominent save-confirmation popup (distinct from the small bottom toast above) — shown
+   after a record actually saves to the server, per operator request that a click-away toast
+   was too easy to miss. Auto-dismisses, but can also be closed early by click/Escape/Enter. */
+function _savedModalEsc(e){if(e.key==="Escape"||e.key==="Enter")hideSavedPopup()}
+function hideSavedPopup(){
+  const ov=document.getElementById("savedModal");
+  if(ov)ov.classList.remove("show");
+  document.removeEventListener("keydown",_savedModalEsc);
+}
+function showSavedPopup(msg){
+  let ov=document.getElementById("savedModal");
+  if(!ov){
+    ov=el("div","modal-overlay");ov.id="savedModal";
+    ov.innerHTML='<div class="modal-box" role="alertdialog" aria-live="assertive" aria-label="บันทึกข้อมูลสำเร็จ">'+
+      '<div class="modal-ic">✓</div>'+
+      '<div class="modal-msg" id="savedModalMsg"></div>'+
+      '<button class="btn primary sm" type="button" id="savedModalOk">OK</button></div>';
+    document.body.append(ov);
+    ov.addEventListener("click",e=>{if(e.target===ov)hideSavedPopup()});
+    ov.querySelector("#savedModalOk").addEventListener("click",hideSavedPopup);
+  }
+  ov.querySelector("#savedModalMsg").textContent=msg||"บันทึกข้อมูลสำเร็จ";
+  ov.classList.add("show");
+  clearTimeout(ov._t);
+  ov._t=setTimeout(hideSavedPopup,2500);
+  document.removeEventListener("keydown",_savedModalEsc);
+  document.addEventListener("keydown",_savedModalEsc);
+}
+
 /* ============================ JUDGEMENT ============================ */
 function judgeNum(v,min,max){
   if(v==null) return "";
@@ -888,10 +917,22 @@ async function saveRecord(){
     return toast("ออฟไลน์ — เก็บไว้ในเครื่องนี้ก่อน "+((r&&r.error)?"("+r.error+")":""),true);
   }
   toast("บันทึกแล้ว · "+rec.stage+" · LOT "+rec.lotNo+" · โดย "+r.recordedBy);
-  rejects=[];mainDef="";V.DECISION="";V.NOTE="";
-  try{localStorage.removeItem("ett_draft_"+stage.code)}catch(e){}
-  renderStage();done();
+  showSavedPopup("บันทึกข้อมูลสำเร็จ · "+rec.stage+" · LOT "+rec.lotNo);
+  resetForNewRecord();
+  done();
   refreshRecent();
+}
+/* Full reset of on-screen data after a successful save (per operator request — the previous
+   behaviour only cleared the current stage's inspection fields and kept the lot header, which
+   is still available via the small manual "Clear" button for the rare case only the stage
+   fields need clearing). This clears the lot header inputs too, recomputes the now-empty
+   standards strip, and drops the per-stage draft so a page refresh doesn't bring old data back. */
+function resetForNewRecord(){
+  V={};rejects=[];mainDef="";SOFT=null;SPEC=null;
+  try{localStorage.removeItem("ett_draft_"+stage.code)}catch(e){}
+  buildLot();
+  const ls=$("#lotState");if(ls)ls.textContent="NEW LOT";
+  renderStrip();renderStage();
 }
 
 /* ============================ RECENT ============================ */

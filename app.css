@@ -229,4 +229,29 @@ details.note code{font-family:var(--mono);font-size:13px;background:var(--surfac
 #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:22px;z-index:60;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none;width:calc(100% - 32px);max-width:480px}
 .toast{background:var(--ink);color:var(--bg);font-family:var(--mono);font-size:13.5px;padding:10px 16px;border-radius:4px;box-shadow:var(--shadow)}
 .toast.err{background:var(--fail);color:#fff}
+
+/* Global "talking to the server" indicator — shown by api.js on any request
+   that takes longer than ~250ms, so a click always gives visible feedback
+   even before that screen's own save/loading text kicks in. */
+#__apiLoading{position:fixed;top:0;left:0;right:0;height:3px;z-index:9999;overflow:hidden;opacity:0;pointer-events:none;transition:opacity .15s}
+#__apiLoading.show{opacity:1}
+.__apiLoadingBar{position:absolute;top:0;bottom:0;width:35%;background:linear-gradient(90deg,transparent,var(--accent-2),var(--accent),var(--accent-2),transparent);animation:__apiLoadingMove 1.1s ease-in-out infinite}
+@keyframes __apiLoadingMove{0%{left:-35%}100%{left:100%}}
+html.__apiBusy, html.__apiBusy body{cursor:progress}
+@media (prefers-reduced-motion:reduce){#__apiLoading{transition:none}.__apiLoadingBar{animation:none;width:100%;left:0!important}}
+
+/* Save-confirmation popup (distinct from the small bottom #toast) — a centered modal shown
+   after a record saves successfully, so the confirmation is impossible to miss. */
+.modal-overlay{position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,.42);display:flex;align-items:center;justify-content:center;
+  opacity:0;pointer-events:none;transition:opacity .15s}
+.modal-overlay.show{opacity:1;pointer-events:auto}
+.modal-box{background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);
+  padding:28px 32px;max-width:340px;width:calc(100% - 40px);text-align:center;
+  transform:scale(.94);transition:transform .15s}
+.modal-overlay.show .modal-box{transform:scale(1)}
+.modal-ic{width:52px;height:52px;line-height:52px;border-radius:999px;background:var(--pass-bg);color:var(--pass);
+  font-size:26px;font-weight:700;margin:0 auto 14px}
+.modal-msg{font-family:var(--thai);font-size:16px;font-weight:600;color:var(--ink);line-height:1.5;margin-bottom:18px}
+.modal-box .btn{width:100%}
+@media (prefers-reduced-motion:reduce){.modal-overlay,.modal-box{transition:none}}
 @media (prefers-reduced-motion:reduce){*{transition-duration:.001ms!important}}

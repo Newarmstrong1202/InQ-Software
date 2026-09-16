@@ -31,6 +31,45 @@ function requireLogin(allowedRoles) {
 
 function _sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
 
+/* Global "the app is talking to the server" indicator. Every apiRaw() call
+   goes through _beginCall()/_endCall() below. A round trip to the Apps
+   Script backend normally takes a second or more (Google's own execution
+   overhead, not something the frontend controls), and with no visual
+   feedback a click can look like it did nothing — people click again,
+   assume the app is stuck, etc. This shows a thin progress bar at the top
+   of the page (and switches the cursor to a wait cursor) for any call that
+   takes longer than ~250ms, on every page that loads api.js. */
+var _pendingCalls = 0, _loadingShowTimer = null;
+function _ensureLoadingEl() {
+  var el = document.getElementById("__apiLoading");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "__apiLoading";
+    el.setAttribute("aria-hidden", "true");
+    el.innerHTML = '<div class="__apiLoadingBar"></div>';
+    document.body.appendChild(el);
+  }
+  return el;
+}
+function _beginCall() {
+  _pendingCalls++;
+  if (_pendingCalls === 1) {
+    _loadingShowTimer = setTimeout(function () {
+      _ensureLoadingEl().classList.add("show");
+      document.documentElement.classList.add("__apiBusy");
+    }, 250);
+  }
+}
+function _endCall() {
+  _pendingCalls = Math.max(0, _pendingCalls - 1);
+  if (_pendingCalls === 0) {
+    clearTimeout(_loadingShowTimer);
+    var el = document.getElementById("__apiLoading");
+    if (el) el.classList.remove("show");
+    document.documentElement.classList.remove("__apiBusy");
+  }
+}
+
 /* Low-level call. Sends POST as text/plain so the browser never issues a CORS
    preflight (Apps Script Web Apps cannot answer OPTIONS requests).
    Google Sheets occasionally throttles a request under load (returns an HTML
@@ -41,23 +80,28 @@ async function apiRaw(action, payload, _isRetry) {
   var body = Object.assign({ action: action }, payload || {});
   var s = getSession();
   if (s && s.token && !body.token) body.token = s.token;
-  var res;
+  if (!_isRetry) _beginCall();
   try {
-    res = await fetch(API_BASE_URL, { method: "POST", body: JSON.stringify(body) });
-  } catch (e) {
-    if (!_isRetry) { await _sleep(1000); return apiRaw(action, payload, true); }
-    return { ok: false, code: "OFFLINE", error: "เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ (ออฟไลน์)" };
+    var res;
+    try {
+      res = await fetch(API_BASE_URL, { method: "POST", body: JSON.stringify(body) });
+    } catch (e) {
+      if (!_isRetry) { await _sleep(1000); return await apiRaw(action, payload, true); }
+      return { ok: false, code: "OFFLINE", error: "เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ (ออฟไลน์)" };
+    }
+    var data;
+    try { data = await res.json(); } catch (e) {
+      if (!_isRetry) { await _sleep(1000); return await apiRaw(action, payload, true); }
+      return { ok: false, code: "ERROR", error: "รูปแบบข้อมูลตอบกลับผิดพลาด" };
+    }
+    if (!data.ok && data.code === "AUTH" && action !== "login") {
+      clearSession();
+      location.href = "login.html";
+    }
+    return data;
+  } finally {
+    if (!_isRetry) _endCall();
   }
-  var data;
-  try { data = await res.json(); } catch (e) {
-    if (!_isRetry) { await _sleep(1000); return apiRaw(action, payload, true); }
-    return { ok: false, code: "ERROR", error: "รูปแบบข้อมูลตอบกลับผิดพลาด" };
-  }
-  if (!data.ok && data.code === "AUTH" && action !== "login") {
-    clearSession();
-    location.href = "login.html";
-  }
-  return data;
 }
 
 var API = {
@@ -68,6 +112,7 @@ var API = {
   saveRecord: function (record) { return apiRaw("saveRecord", { record: record }); },
   editRecord: function (id, changes) { return apiRaw("editRecord", { id: id, changes: changes }); },
   getAuditLog: function (recordId) { return apiRaw("getAuditLog", { recordId: recordId }); },
+  getEditedRecordIds: function () { return apiRaw("getEditedRecordIds", {}); },
   pullLot: function (lot) { return apiRaw("pullLot", { lot: lot }); },
   saveStandard: function (article, substance, stage, params) { return apiRaw("saveStandard", { article: article, substance: substance, stage: stage, params: params }); },
   getStandards: function () { return apiRaw("getStandards", {}); },

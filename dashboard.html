@@ -69,7 +69,7 @@ table.rdt tr:hover td{background:var(--surface-2)}
 .noperm{font-family:var(--thai);color:var(--ink-3);font-size:13px;padding:10px 0}
 #printHeader{display:none}
 @media print{
-  .top,.tabNav,#filtersCard,.toolbar,.pager,#rawDataSection,.modal-overlay,.chart-card .clickhint{display:none!important}
+  .top,.tabNav,#filtersCard,.toolbar,.pager,#rawDataSection,#editedSection,.modal-overlay,.chart-card .clickhint{display:none!important}
   #printHeader{display:block!important;margin-bottom:14px}
   #printHeader h1{font-size:18px}
   #printHeader p{font-family:var(--mono);font-size:11.5px;color:#444;margin-top:4px}
@@ -108,6 +108,7 @@ table.rdt tr:hover td{background:var(--surface-2)}
   <div class="tabNav" id="tabNav">
     <button type="button" class="tabBtn active" data-tab="chart">แดชบอร์ด (Charts)</button>
     <button type="button" class="tabBtn" data-tab="raw">ข้อมูลดิบ (Raw Data)</button>
+    <button type="button" class="tabBtn" data-tab="edited">รายการที่แก้ไข (Edited) <span id="editedTabCount" class="rid" style="margin-left:6px"></span></button>
   </div>
 
   <section class="card" id="filtersCard">
@@ -178,6 +179,30 @@ table.rdt tr:hover td{background:var(--surface-2)}
       </div>
     </section>
   </div>
+
+  <div id="editedSection" hidden>
+    <section class="card">
+      <div class="card-hd"><h2>รายการที่มีการแก้ไข <span class="th">(Records with edit history)</span></h2><span class="rid" id="editedCount"></span></div>
+      <div class="card-bd">
+        <div class="toolbar">
+          <input type="search" id="reSearch" placeholder="ค้นหา… lot / article / colour / note">
+          <span class="muted">แสดงเฉพาะรายการที่เคยถูกแก้ไขอย่างน้อย 1 ครั้ง · คลิกแถวเพื่อดูรายละเอียดและประวัติการแก้ไขทั้งหมด</span>
+        </div>
+        <div class="tablewrap">
+          <table class="rdt">
+            <thead><tr>
+              <th data-k="lastEditedAt">แก้ไขล่าสุด</th><th data-k="lotNo">Lot</th><th data-k="stage">Stage</th>
+              <th data-k="article">Article</th><th data-k="customer">Customer</th><th data-k="recordedBy">บันทึกโดย</th>
+              <th data-k="lastEditedBy">แก้ไขล่าสุดโดย</th><th data-k="count">จำนวนครั้งที่แก้</th>
+              <th data-k="result">Result</th><th></th>
+            </tr></thead>
+            <tbody id="reBody"></tbody>
+          </table>
+        </div>
+        <div class="pager" id="rePager"></div>
+      </div>
+    </section>
+  </div>
 </div>
 
 <div id="modalRoot"></div>
@@ -189,6 +214,9 @@ const SESSION = requireLogin();
 let ALL=[], CHARTS={}, ACTIVE_TAB="chart";
 let RD_SORT={k:"ts",dir:-1}, RD_SEARCH="", RD_PAGE=0;
 const RD_PAGE_SIZE=50;
+let EDITED={};
+let RE_SORT={k:"lastEditedAt",dir:-1}, RE_SEARCH="", RE_PAGE=0;
+const RE_PAGE_SIZE=50;
 const PALETTE={pass:"#2C7355",near:"#9A6B0F",fail:"#AB3B27",accent:"#2C5E7E",accent2:"#4A87AB",tan:"#8E6234",grid:"rgba(140,135,121,.18)",ink2:"#5B584F"};
 
 function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
@@ -215,7 +243,9 @@ function switchTab(tab){
   document.querySelectorAll(".tabBtn").forEach(b=>b.classList.toggle("active",b.dataset.tab===tab));
   document.getElementById("chartTab").hidden=tab!=="chart";
   document.getElementById("rawDataSection").hidden=tab!=="raw";
+  document.getElementById("editedSection").hidden=tab!=="edited";
   if(tab==="raw") renderRawData();
+  if(tab==="edited") renderEditedData();
 }
 function describeFilters(){
   const parts=[];
@@ -284,7 +314,7 @@ function render(){
   destroyCharts();
   if(!total){["chartTime","chartStage","chartDefect","chartInspector","chartCustomer","chartTannery","chartArticle"].forEach(id=>{
     const ctx=document.getElementById(id).getContext("2d");ctx.clearRect(0,0,9999,9999);
-  });if(ACTIVE_TAB==="raw")renderRawData();return}
+  });if(ACTIVE_TAB==="raw")renderRawData();if(ACTIVE_TAB==="edited")renderEditedData();return}
 
   // 1. Records over time, stacked by result
   const byDay={};
@@ -389,6 +419,7 @@ function render(){
   });
 
   if(ACTIVE_TAB==="raw") renderRawData();
+  if(ACTIVE_TAB==="edited") renderEditedData();
 }
 
 function chartOpts(o){
@@ -446,10 +477,61 @@ function renderRawData(){
   document.getElementById("rdNext").onclick=()=>{RD_PAGE++;renderRawData()};
 }
 document.getElementById("rdSearch").addEventListener("input",e=>{RD_SEARCH=e.target.value;RD_PAGE=0;renderRawData()});
-document.querySelectorAll("table.rdt th[data-k]").forEach(th=>th.addEventListener("click",()=>{
+document.querySelectorAll("#rawDataSection table.rdt th[data-k]").forEach(th=>th.addEventListener("click",()=>{
   const k=th.dataset.k;
   if(RD_SORT.k===k)RD_SORT.dir*=-1; else RD_SORT={k,dir:1};
   renderRawData();
+}));
+
+/* ============================ EDITED RECORDS TABLE ============================ */
+/* Records with at least one AuditLog entry — a plain filter over the same ALL/EDITED
+   data already loaded for the dashboard, so this needs no separate polling or refresh. */
+function editedRows(){
+  return applyFilters()
+    .filter(r=>EDITED[String(r.id)])
+    .map(r=>Object.assign({}, r, EDITED[String(r.id)]));
+}
+function renderEditedData(){
+  let rows=editedRows();
+  const q=RE_SEARCH.trim().toLowerCase();
+  if(q) rows=rows.filter(r=>[r.lotNo,r.article,r.colour,r.colourDesc,r.customer,r.note,r.lastEditedBy].some(v=>String(v||"").toLowerCase().indexOf(q)!==-1));
+  rows=rows.slice().sort((a,b)=>{
+    const k=RE_SORT.k;let av=a[k],bv=b[k];
+    if(k==="lastEditedAt"){av=new Date(av||0).getTime();bv=new Date(bv||0).getTime()}
+    else if(k==="count"){av=Number(av)||0;bv=Number(bv)||0}
+    else {av=String(av==null?"":av).toLowerCase();bv=String(bv==null?"":bv).toLowerCase()}
+    if(av<bv)return -1*RE_SORT.dir; if(av>bv)return 1*RE_SORT.dir; return 0;
+  });
+  document.getElementById("editedCount").textContent=rows.length+" รายการ";
+  const totalPages=Math.max(1,Math.ceil(rows.length/RE_PAGE_SIZE));
+  if(RE_PAGE>=totalPages)RE_PAGE=totalPages-1; if(RE_PAGE<0)RE_PAGE=0;
+  const pageRows=rows.slice(RE_PAGE*RE_PAGE_SIZE,RE_PAGE*RE_PAGE_SIZE+RE_PAGE_SIZE);
+  const body=document.getElementById("reBody");
+  body.innerHTML=pageRows.map(r=>
+    '<tr data-id="'+esc(r.id)+'">'+
+    '<td>'+esc(fmtDt(r.lastEditedAt))+'</td><td>'+esc(r.lotNo)+'</td><td>'+esc(r.stage)+'</td>'+
+    '<td>'+esc(r.article)+'</td><td>'+esc(r.customer)+'</td><td>'+esc(r.recordedBy||r.inspector)+'</td>'+
+    '<td>'+esc(r.lastEditedBy)+'</td><td>'+esc(r.count||1)+'</td>'+
+    '<td><span class="badge '+esc(r.result)+'">'+esc((r.result||"").toUpperCase())+'</span></td>'+
+    '<td><button type="button" class="btn sm viewBtn3">ดู</button></td></tr>'
+  ).join("")||'<tr><td colspan="9" class="empty-note">ยังไม่มีรายการที่ถูกแก้ไข</td></tr>';
+  body.querySelectorAll(".viewBtn3").forEach(btn=>btn.onclick=()=>{
+    const id=btn.closest("tr").dataset.id;
+    const rec=ALL.find(r=>String(r.id)===String(id));
+    if(rec) openRecordModal(rec);
+  });
+  document.getElementById("rePager").innerHTML=
+    '<button type="button" class="btn sm" id="rePrev" '+(RE_PAGE<=0?"disabled":"")+'>← ก่อนหน้า</button>'+
+    '<span class="muted">หน้า '+(RE_PAGE+1)+' / '+totalPages+'</span>'+
+    '<button type="button" class="btn sm" id="reNext" '+(RE_PAGE>=totalPages-1?"disabled":"")+'>ถัดไป →</button>';
+  document.getElementById("rePrev").onclick=()=>{RE_PAGE--;renderEditedData()};
+  document.getElementById("reNext").onclick=()=>{RE_PAGE++;renderEditedData()};
+}
+document.getElementById("reSearch").addEventListener("input",e=>{RE_SEARCH=e.target.value;RE_PAGE=0;renderEditedData()});
+document.querySelectorAll("#editedSection table.rdt th[data-k]").forEach(th=>th.addEventListener("click",()=>{
+  const k=th.dataset.k;
+  if(RE_SORT.k===k)RE_SORT.dir*=-1; else RE_SORT={k,dir:1};
+  renderEditedData();
 }));
 
 /* ============================ MODALS ============================ */
@@ -563,11 +645,14 @@ async function loadHistory(recordId){
 }
 
 async function load(){
-  const r=await API.getRecords({limit:20000});
+  const [r,re]=await Promise.all([API.getRecords({limit:20000}),API.getEditedRecordIds()]);
   if(!r.ok){toast(r.error||"โหลดข้อมูลไม่สำเร็จ",true);return}
   ALL=r.records;
+  EDITED=(re&&re.ok)?re.edited||{}:{};
+  document.getElementById("editedTabCount").textContent=Object.keys(EDITED).length?"("+Object.keys(EDITED).length+")":"";
   populateFilters();
   render();
+  if(ACTIVE_TAB==="edited") renderEditedData();
 }
 
 ["fFrom","fTo","fStage","fArticle","fCustomer","fTannery","fInspector","fResult"].forEach(id=>{
